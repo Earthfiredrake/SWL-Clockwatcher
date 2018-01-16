@@ -2,41 +2,35 @@
 // Released under the terms of the MIT License
 // https://github.com/Earthfiredrake/SWL-Clockwatcher
 
-import com.GameInterface.Game.Character;
-import com.GameInterface.Log;
-import com.GameInterface.Quest;
-import com.GameInterface.Quests;
-import com.GameInterface.Utils;
 import com.Utils.Archive;
 
-var DebugTrace:Boolean = true;
+import efd.Clockwatcher.Clockwatcher;
 
-function TraceMsg(message:String, options:Object):Void {
-	// Debug messages, should be independent of localization system to allow traces before it loads
-	if (DebugTrace) {
-		if (!options.noPrefix) {
-			var sysPrefix:String = options.system ? (options.system + " - ") : "";
-			message = "<font color='#FFB555'> CDTracker </font>: Trace - " + sysPrefix + message;
-		}
-		Utils.PrintChatText(message);
-	}
-}
-function LogMsg(message:String, noTrace:Boolean):Void { 
-	if (!noTrace) { TraceMsg(message, {system : "Log"}); }
-	Log.Error("CDTracker", message);
-}
+var ModObj:Clockwatcher;
 
-function onLoad():Void {}
-function OnModuleActivated(archive:Archive):Void {}
-function OnModuleDeactivated():Archive {
-	var logData:Archive = new Archive();
-	logData.AddEntry("CharName", Character.GetClientCharacter().GetName());
-	var cdQuests:Array = Quests.GetAllQuestsOnCooldown(); // Uncertain if no-repeat quests can end up in this list
-	for (var i:Number = 0; i < cdQuests.length; ++i) {
-		var q:Quest = cdQuests[i];
-		// Cooldown expiries are in Unix std time format
-		logData.AddEntry("MissionCD", [q.m_ID, q.m_CooldownExpireTime, q.m_MissionName].join('|'));
-	}	
-	return logData;
+// Function trigger descriptions are based upon the following settings in Modules.xml
+// flags = "GMF_DONT_UNLOAD" // Don't unload/reload the entire mod every time it's disabled
+// criteria contains "GUIMODEFLAGS_INPLAY | GUIMODEFLAGS_ENABLEALLGUI" // Enable only if the player is in play, or all gui is requested regardless
+
+// Called when the clip is first loaded
+// - When the player logs in a character, including on relogs
+// - When /relaodui is called
+// - If the mod activation distributed value is false, it may skip loading entirely
+function onLoad():Void { ModObj = new Clockwatcher(this); }
+
+// Often called in pairs, deactivating and reactivating the mod as the criteria evaluation changes
+// Due to the frequency of this occuring, these should be relatively light functions
+// Activate is called once immediately after onLoad
+// Paired calls are made when: Changing zones, cutscenes play, the player anima leaps or is otherwise teleported
+// Deactivate is called once immediately prior to OnUnload
+// Toggling the distributed value will force toggle these
+function OnModuleActivated(archive:Archive):Void { ModObj.GameToggleModEnabled(true, archive); }
+
+function OnModuleDeactivated():Archive { return ModObj.GameToggleModEnabled(false); }
+
+// Called just before the game unloads the clip
+// - When the user logs out, or returns to character selection (unconfirmed)
+function OnUnload():Void {
+	ModObj.OnUnload();
+	delete ModObj; 
 }
-function OnUnload():Void {}
