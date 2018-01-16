@@ -12,7 +12,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Xml.Linq;
 
-namespace CDTracker {
+namespace Clockwatcher {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -43,7 +43,7 @@ namespace CDTracker {
         private Object ExtractCharacterData(string settingsFile) {
             Debug.Assert(File.Exists(settingsFile));
             var trackerData = (from e in XElement.Load(settingsFile).Elements("Archive")
-                               where (string)e.Attribute("name") == "efdCDTrackerConfig"
+                               where (string)e.Attribute("name") == "efdClockwatcherConfig"
                                select e).SingleOrDefault();
             // Mod not in use on this character (no mod archive), no tab required
             // Characters who only lack mission entries, are listed to show they have no cooldowns active

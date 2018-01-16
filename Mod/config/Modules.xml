@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Root>
-  <Module name  = "CDTracker"
-    movie       = "CDTracker\CDTracker.swf"
+  <Module name  = "Clockwatcher"
+    movie       = "Clockwatcher\Clockwatcher.swf"
     depth_layer = "Middle"
     sub_depth   = "10"
-    variable    = "efdGameEnablesCDTracker"
-	config_name = "efdCDTrackerConfig"
-    criteria    = "efdGameEnablesCDTracker &amp;&amp; (guimode &amp; (GUIMODEFLAGS_INPLAY | GUIMODEFLAGS_ENABLEALLGUI))"
+    variable    = "efdGameEnablesClockwatcher"
+	config_name = "efdClockwatcherConfig"
+    criteria    = "efdGameEnablesClockwatcher &amp;&amp; (guimode &amp; (GUIMODEFLAGS_INPLAY | GUIMODEFLAGS_ENABLEALLGUI))"
 	flags       = "GMF_CFG_STORE_USER_CONFIG | GMF_DONT_UNLOAD"
   />
 </Root>

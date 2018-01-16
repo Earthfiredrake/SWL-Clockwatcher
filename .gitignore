@@ -11,6 +11,7 @@ App/bin/
 # Settings
 Mod/.settings/
 App/.vs/
+App/*.user
 
 # Executables
 *.swf
