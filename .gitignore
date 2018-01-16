@@ -1,0 +1,23 @@
+# Build and Release Folders
+release/
+Mod/[Oo]bj/ # FlashDevelop obj
+Mod/[Bb]in/ # FlashDevelop bin
+App/obj/
+App/bin/
+
+# Generated Code
+*.Designer.cs
+
+# Settings
+Mod/.settings/
+App/.vs/
+
+# Executables
+*.swf
+*.air
+*.ipa
+*.apk
+
+# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
+# should NOT be excluded as they contain compiler settings and other important
+# information for Eclipse / Flash Builder.
