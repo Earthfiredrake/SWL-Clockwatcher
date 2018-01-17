@@ -1,6 +1,6 @@
 ﻿// Copyright 2018, Earthfiredrake
 // Released under the terms of the MIT License
-// https://github.com/Earthfiredrake/SWL-CDTracker
+// https://github.com/Earthfiredrake/SWL-Clockwatcher
 
 using System;
 using System.Collections.Generic;

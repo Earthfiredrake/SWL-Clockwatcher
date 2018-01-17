@@ -26,9 +26,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
 		if (!state) {
+			Config.NotifyChange("PIGPEN"); // Force dirty flag, to prevent reuse of loaded archive
+			var logData:Archive = super.GameToggleModEnabled(state);
 			// Append mission cooldowns into the settings archive
 			// Bypasses ConfigWrapper to use default array serialization
-			var logData:Archive = super.GameToggleModEnabled(state);
 			logData.AddEntry("CharName", Character.GetClientCharacter().GetName());
 			var cdQuests:Array = Quests.GetAllQuestsOnCooldown(); // Uncertain if no-repeat quests can end up in this list
 			for (var i:Number = 0; i < cdQuests.length; ++i) {

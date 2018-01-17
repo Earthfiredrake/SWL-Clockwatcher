@@ -4,7 +4,7 @@
 // Modified for Clockwatcher:
 //   Copyright 2017-2018, Earthfiredrake
 //   Used and released under the terms of the MIT License
-//   https://github.com/Earthfiredrake/TSW-Clockwatcher
+//   https://github.com/Earthfiredrake/SWL-Clockwatcher
 
 /**
  *
