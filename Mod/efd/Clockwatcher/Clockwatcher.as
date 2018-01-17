@@ -13,7 +13,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private static var ModInfo:Object = {
 		// Debug settings at top so that commenting out leaves no hanging ','
 		// Trace : true,
-		GuiFlags : ef_ModGui_NoIcon | ef_ModGui_NoConfigWindow, // ef_ModGui_Console
+		GuiFlags : ef_ModGui_NoConfigWindow,
 		// ERM??? not sure how to categorize it
 		//  Currently it's pretty much passive, it just sits there and creates settings
 		//  Intended features add a mixture of reactive and interface
