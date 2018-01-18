@@ -6,13 +6,16 @@
         xmlns:local="clr-namespace:Clockwatcher"
         mc:Ignorable="d"
         Title="Mission Cooldowns" Height="350" Width="300">
+    <Window.Resources>
+        <local:TimeFormatConverter x:Key="timeFormatter" />
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <TabControl Margin="10,10,10,5"
-                    ItemsSource="{Binding MissionLists}" SelectedIndex="0">
+                    ItemsSource="{Binding CharacterMissionLists}" SelectedIndex="0">
             <TabControl.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding CharName}"/>
@@ -20,15 +23,15 @@
             </TabControl.ItemTemplate>
             <TabControl.ContentTemplate>
                 <DataTemplate>
-                    <DataGrid ItemsSource="{Binding Missions}" CanUserAddRows="False" CanUserDeleteRows="False" RowDetailsVisibilityMode="Collapsed" AutoGenerateColumns="False">
+                    <DataGrid ItemsSource="{Binding MissionList}" CanUserAddRows="False" CanUserDeleteRows="False" RowDetailsVisibilityMode="Collapsed" AutoGenerateColumns="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Binding="{Binding Name}" Header="Mission Name" IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding Cooldown}" Header="Time Left" SortDirection="Ascending" IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding RemainingTime, Converter={StaticResource timeFormatter}}" Header="Time Left" SortDirection="Ascending" IsReadOnly="True"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DataTemplate>
             </TabControl.ContentTemplate>
         </TabControl>
-        <Button x:Name="RefreshButton" Content="Refresh" Width="75" Grid.Row="1" Command="{Binding RefreshCommand}"/>
+        <Button Content="Refresh" Width="75" Grid.Row="1" Command="{Binding RefreshCommand}"/>
     </Grid>
 </Window>
