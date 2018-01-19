@@ -17,6 +17,8 @@ import com.Utils.Archive;
 // TODO: Component based behaviour system for lighter weight mods
 //       Objective is to remove at least some of these imports
 //       Possibly split out some other subsystems and mod behaviours
+//       Can probably extract ConfigWrapper from this one too, and much of the Versioning system
+//       This mod seems pretty stateless
 import efd.Clockwatcher.lib.ConfigWrapper;
 import efd.Clockwatcher.lib.LocaleManager;
 
@@ -234,12 +236,8 @@ class efd.Clockwatcher.lib.Mod {
 
 	private function SetDebugMode(dv:DistributedValue):Void { DebugTrace = dv.GetValue(); }
 
-	private function ReportVersion(dv:DistributedValue):Void {
-		if (dv.GetValue()) {
-			ChatMsg(Version);
-			dv.SetValue(false);
-		}
-	}
+	// TODO: Won't work if I toggle it back to false immediately... is there a better solution than this?
+	private function ReportVersion(dv:DistributedValue):Void { ChatMsg(Version); }
 
 /// Configuration Settings
 	// The framework reserves the following Config setting names for internal use:
