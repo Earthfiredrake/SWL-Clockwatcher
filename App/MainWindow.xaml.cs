@@ -4,7 +4,6 @@
 
 using System;
 using System.Globalization;
-using System.Timers;
 using System.Windows;
 using System.Windows.Data;
 
@@ -16,11 +15,7 @@ namespace Clockwatcher {
         public MainWindow() {
             InitializeComponent();
             DataContext = new Dataset();
-            RefreshTimer.Elapsed += (sender, e) => Dispatcher.Invoke(() => (DataContext as Dataset)?.Refresh(false));
-            RefreshTimer.Enabled = true;
         }
-
-        private Timer RefreshTimer = new Timer(5000);
     }
 
     [ValueConversion(typeof(TimeSpan), typeof(string))]

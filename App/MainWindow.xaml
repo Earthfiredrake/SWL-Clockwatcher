@@ -25,8 +25,25 @@
                 <DataTemplate>
                     <DataGrid ItemsSource="{Binding MissionList}" CanUserAddRows="False" CanUserDeleteRows="False" RowDetailsVisibilityMode="Collapsed" AutoGenerateColumns="False">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding Name}" Header="Mission Name" IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding RemainingTime, Converter={StaticResource timeFormatter}}" Header="Time Left" SortDirection="Ascending" IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Mission" IsReadOnly="True">
+                                <DataGridTextColumn.HeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.HeaderStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding RemainingTime, Converter={StaticResource timeFormatter}}" Header="Time Left" SortDirection="Ascending" IsReadOnly="True">
+                                <DataGridTextColumn.HeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.HeaderStyle>
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DataTemplate>
