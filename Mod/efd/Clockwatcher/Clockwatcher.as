@@ -2,11 +2,14 @@
 // Released under the terms of the MIT License
 // https://github.com/Earthfiredrake/SWL-Clockwatcher
 
+import gfx.utils.Delegate;
+
 import com.GameInterface.DistributedValue;
 import com.GameInterface.Game.Character;
 import com.GameInterface.Quest;
 import com.GameInterface.Quests;
 import com.Utils.Archive;
+import com.Utils.Colors;
 import com.Utils.LDBFormat;
 
 import efd.Clockwatcher.lib.Mod;
@@ -26,8 +29,11 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		super(ModInfo, hostMovie);
 		InitLairMissions();
 		Quests.SignalMissionCompleted.Connect(MissionCompleted, this);
+		LockoutsDV = DistributedValue.Create('lockoutTimers_window');
+		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 	}
 
+/// Offline cooldown tracking
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
 		if (!state) {
 			super.GameToggleModEnabled(state);
@@ -58,11 +64,87 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		}
 		for (var s:String in lairs) {
 			// Using negative MissionIDs to ensure that proxy missions for lairs are unique
-			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LDBFormat.LDBGetText("Playfieldnames", Number(s)) + " Lair"].join('|'));
+			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LDBFormat.LDBGetText("Playfieldnames", Number(s)) + " Lair"].join('|')); // TODO: Locale, playfield names are slightly unwieldy
 		}
 		return logData;
 	}
 
+/// Timer window lair tracking
+	private function HookLockoutsWindow(dv:DistributedValue):Void {
+		if (dv.GetValue()) {
+			var content:MovieClip = _root.lockouttimers.m_Window.m_Content;
+			if (!content) { setTimeout(Delegate.create(this, HookLockoutsWindow), 40, dv); }
+			else { ApplyHook(content); }
+		}
+	}
+
+	private function ApplyHook(content:MovieClip):Void {
+		content.m_RaidsHeader.text = "Lairs & " + content.m_RaidsHeader.text; // TODO: Locale
+		var proto:MovieClip = content.m_EliteRaid;
+		var lairs:Array = GetLairList();
+		for (var i:Number = 0; i < lairs.length; ++i) {
+			var clip:MovieClip = proto.duplicateMovieClip("m_Lair" + lairs[i].zone, content.getNextHighestDepth());
+			clip._x = proto._x;
+			clip._y = proto._y + 20 * (i + 1);
+			clip.m_Name.text = LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone) + " Lair"; // TODO: Locale, playfield names are slightly unwieldy
+			clip.m_Expiry = lairs[i].expiry;
+			clip.UpdateExpiry = UpdateExpiry;
+			clip.UpdateExpiry();
+			clip.onUnload = proto.onUnload;
+			clip.ClearTimeInterval = proto.ClearTimeInterval;
+			clip.m_TimeInterval = setInterval(clip, "UpdateExpiry", 1000);
+		}
+		content.SignalSizeChanged.Emit();
+	}
+
+	private static function GetLairList():Array {
+		var lairs:Object = new Object;
+		var cdQuests:Array = Quests.GetAllQuestsOnCooldown();
+		for (var i:Number = 0; i < cdQuests.length; ++i) {
+			var q = cdQuests[i];
+			if (LairMissions[q.m_ID]) {
+				lairs[LairMissions[q.m_ID]] = lairs[LairMissions[q.m_ID]] ?
+				Math.max(lairs[LairMissions[q.m_ID]], q.m_CooldownExpireTime):
+				q.m_CooldownExpireTime;
+			}
+		}
+		// Sort result based on zone
+		var listed:Array = [{zone : 3030}, {zone : 3040}, {zone : 3050},
+							{zone : 3090}, {zone : 3100},
+							{zone : 3120}, {zone : 3130}, {zone : 3140},
+							{zone : 3070}];
+		for (var i:Number = 0; i < listed.length; ++i) {
+			listed[i].expiry = lairs[listed[i].zone];
+		}
+		return listed;
+	}
+
+	// Called in context of Lair LockoutEntry movieclip
+	private function UpdateExpiry():Void {
+		var target:Object = this;
+		var timeStr:String = FormatRemainingTime(target.m_Expiry);
+		if (timeStr) { target.m_Lockout.text = timeStr; }
+		else {
+			target.m_Lockout.textColor = Colors.e_ColorGreen;
+			target.m_Lockout.text = LDBFormat.LDBGetText("MiscGUI", "LockoutTimers_Available");
+			target.ClearTimeInterval();
+		}
+	}
+
+	private static function FormatRemainingTime(expiry:Number):String {
+		if (!expiry) { return undefined; }
+		var remaining:Number = Math.floor(expiry - (new Date().getTime() / 1000));
+		if (remaining <= 0) { return undefined; }
+		var hours:String = String(Math.floor(remaining / 3600));
+		if (hours.length == 1) { hours = "0" + hours; }
+		var minutes:String = String(Math.floor((remaining / 60) % 60));
+		if (minutes.length == 1) { minutes = "0" + minutes; }
+		var seconds:String = String(Math.floor(remaining % 60));
+		if (seconds.length == 1) { seconds = "0" + seconds; }
+		return hours + ":" + minutes + ":" + seconds;
+	}
+
+/// Variables
 	private static function InitLairMissions():Void {
 		LairMissions["3434"] = 3030;
 		LairMissions["3445"] = 3030;
@@ -94,4 +176,5 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	private static var LairMissions:Object = new Object();
+	private var LockoutsDV:DistributedValue;
 }
