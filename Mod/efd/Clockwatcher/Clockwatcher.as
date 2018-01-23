@@ -12,7 +12,10 @@ import com.Utils.Archive;
 import com.Utils.Colors;
 import com.Utils.LDBFormat;
 
+import efd.Clockwatcher.lib.LocaleManager;
 import efd.Clockwatcher.lib.Mod;
+
+// TODO: Playfield names are slightly unwieldy for lair strings, consider revising
 
 class efd.Clockwatcher.Clockwatcher extends Mod {
 /// Initialization
@@ -22,7 +25,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug settings at top so that commenting out leaves no hanging ','
 		// Trace : true,
 		Name : "Clockwatcher",
-		Version : "0.0.1.alpha"
+		Version : "1.0.0"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -64,7 +67,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		}
 		for (var s:String in lairs) {
 			// Using negative MissionIDs to ensure that proxy missions for lairs are unique
-			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LDBFormat.LDBGetText("Playfieldnames", Number(s)) + " Lair"].join('|')); // TODO: Locale, playfield names are slightly unwieldy
+			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
 		}
 		return logData;
 	}
@@ -79,14 +82,14 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	private function ApplyHook(content:MovieClip):Void {
-		content.m_RaidsHeader.text = "Lairs & " + content.m_RaidsHeader.text; // TODO: Locale
+		content.m_RaidsHeader.text = LocaleManager.FormatString("Clockwatcher", "LockoutSectionTitle", content.m_RaidsHeader.text);
 		var proto:MovieClip = content.m_EliteRaid;
 		var lairs:Array = GetLairList();
 		for (var i:Number = 0; i < lairs.length; ++i) {
 			var clip:MovieClip = proto.duplicateMovieClip("m_Lair" + lairs[i].zone, content.getNextHighestDepth());
 			clip._x = proto._x;
 			clip._y = proto._y + 20 * (i + 1);
-			clip.m_Name.text = LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone) + " Lair"; // TODO: Locale, playfield names are slightly unwieldy
+			clip.m_Name.text = LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone));
 			clip.m_Expiry = lairs[i].expiry;
 			clip.UpdateExpiry = UpdateExpiry;
 			clip.UpdateExpiry();
@@ -145,6 +148,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 /// Variables
+	// TODO: This can be offloaded to a datafile
 	private static function InitLairMissions():Void {
 		LairMissions["3434"] = 3030;
 		LairMissions["3445"] = 3030;

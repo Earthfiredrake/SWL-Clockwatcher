@@ -14,11 +14,6 @@
 <!-- Some strings in General and GUI categories may not be used by a particular mod, but are included to support alternate development from the framework -->
 <StringCategories>
 	<General> <!-- Used for standard messages created as part of my mod framework -->
-		<Installed en="Has been installed" />
-		<Update en="Updated to v%1%" /> <!-- %1% = ModVersion -->
-		<Revert en="Reverted to v%1%" /> <!-- %1% = ModVersion -->
-		<NoMigration en="Setting migration from %1% is not possible, settings will be reset to defaults." /> <!-- %1% = PriorVersion -->
-		<ReviewSettings en="Please take a moment to review the settings" />
 		<ModMessagePrefix en="&lt;font color='#00FFFF'&gt;%1%&lt;/font&gt;: " /> <!-- %1% = ModName; Yeah it's ugly, xml is not great for storing html -->
 		<SubsystemMessagePrefix	en="%1% - " /> <!-- %1% = Subsystem name -->
 		<!-- Message format strings receive the following values in standard positions -->
@@ -26,25 +21,10 @@
 		<!-- %2% = ModMessagePrefix (as above or "" if not provided) -->
 		<!-- %3% = SubsystemMessagePrefix (as above or "" if not provided) -->
 		<!-- Further parameters may be provided by the mod, as detailed -->
-		<FifoMessage en="%1%" /> <!-- Minimalist output, no non-standard parameters available -->
 		<ChatMessage en="%2%%3%%1%" />
-		 <!-- Used by console style mods that lack icon notification -->
-		<Enabled en="Has been enabled" />
-		<Disabled en="Has been disabled" />
-		<!-- Warning for disabling VTIO topbar integration -->
-		<RemoveVTIO en="The topbar mod does not support removal of registered mods at runtime. An attempt to fake it has been made, but may result in unexpected behaviour. It is strongly recommended to properly finish the process with '/reloadui'." />
 	</General>
-	<GUI> <!-- Used for all GUI strings. GUI may not expand nicely for longer text -->
-		<ConfigWindowTitle en="%1% Settings" /> <!-- %1% = ModName -->
-		<InterfaceWindowTitle en="%1%" /> <!-- %1% = ModName -->
-		<TooltipCredit en="v%1% by %2%" /> <!-- %1% = ModVersion; %2% = DevName -->
-		<TooltipLeft en="Left Click: %1%" /> <!-- %1% = Tooltip for bound action -->
-		<TooltipRight en="Right Click: %1%" /> <!-- %1% = Tooltip for bound action -->
-		<TooltipModOn en="Enable Mod" />
-		<TooltipModOff en="Disable Mod" />
-		<TooltipShowSettings en="Show Settings" />
-		<TooltipShowInterface en="Display Interface" />
-	</GUI>
-	<Clockwatcher> <!-- Chat and fifo messages specific to this mod -->
+	<Clockwatcher> <!-- Text specific to this mod -->
+	  <LockoutSectionTitle en="%1% &amp; Lairs" /> <!-- %1% = default section title -->
+	  <LairName en="%1% Lair" /> <!-- %1% = playfield name -->
 	</Clockwatcher>
 </StringCategories>

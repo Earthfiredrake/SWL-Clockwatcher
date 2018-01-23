@@ -3,57 +3,49 @@ Utilities for mission cooldown tracking
 
 ## Overview
 A collection of tools to help track mission cooldowns:
-  Offline tracking - The mod saves the missions on cooldown before a character logs out. Clockwatcher.exe can be run from outside of the game to view the remaining time on these missions.
++ Offline tracking - The mod saves a list of missions on cooldown. Clockwatcher.exe displays the remaining cooldown times without needing to log into the game
++ Lair Timers - Adds lairs to the lockout timer window (shift-l), listing the longest remaining cooldown among missions in that lair.
 
-The mod is currently a proof of concept. It should work, but features are sparse and major changes are likely.
-
-Settings are saved per character, as each has their own list of missions.
+Mission lists are saved per character.
 
 ## Installation
 The packaged release should be unzipped (including the internal folder) into the listed folder:
 <br/>SWL: [SWL Directory]\Data\Gui\Custom\Flash
-<br/>TSW: [TSW Directory]\Data\Gui\Customized\Flash
+<br/>TSW: [TSW Directory]\Data\Gui\Customized\Flash (Untested, may have unexpected 'features')
 
-The safest method for upgrading (required for installing) is to have the client closed and delete any existing .bxml files in the LoreHound directory. Hotpatching (using /reloadui) works as long as neither Modules.xml or LoginPrefs.xml have changed.
+The safest method for upgrading (required for installing) is to have the client closed and delete any existing .bxml files in the mod directory. Hotpatching (using /reloadui) works as long as neither Modules.xml or LoginPrefs.xml have changed.
 
-Clockwatcher.exe requires v4.6 of the .net framework to be installed which can be downloaded from Microsoft if needed. Characters will not be listed until they have had some data saved by the mod. Logging a character in and doing a '/reloadui' will force an update of saved data, and can be used to quickly verify that things are properly installed. For convenience make a shortcut to Clockwatcher.exe instead of moving the executable; while not currently an issue, future features may expect it to share the directory with the mod.
+Clockwatcher.exe requires v4.6 of the .net framework to be installed which can be downloaded from Microsoft if needed. It will not have any content until the mod has had an opportunity to save some data.
 
-I intend to permit setting migration from the first public beta to v1.0.x, but this may be subject to change. As with my other mods, this update compatibility window will occasionally be shifted to reduce legacy code clutter.
+## Usage Notes
++ Each lair's missions share a single entry in both the timer window and offline tracking tool, and the listed time is the longest of those missions' cooldowns
++ Clockwatcher.exe automatically does a minor refresh to update the time display, but will only load new data on manual refreshes. This merges new data with that already loaded, retaining any "Ready!" missions until the program exits
++ Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two.
 
 ## Change Log
+Version 1.0.0
++ Lairs are listed in the lockout timer window (shift-l)
++ Mod saves mission cooldowns on completion, on logout, and intermittently during play
++ Tool to view these cooldowns outside of the game
 
-Version Next
-+ Proof of concept
-+ Tracking mod saves mission data (semi-regular snapshots during play (in case of crashes), and before logging out)
-+ Offline tool loads and displays the data
-
-## Known Issues
-
-Mod:
-+ There is a lack of notifications for pretty much everything
-
-App:
-+ Time Left displays and sorts oddly for cooldowns > 1 day and expired cooldowns
-+ If you only have one character tab, the refresh button does odd things with the selected tab
-
-This is a very early version of this mod. Everything is an issue, some of them are known.
-I'm always open to hearing comments and suggestions though, better to start with the good ideas than rewrite from the bad ones.
-
-## Testing and Further Developments
+## Known Issues & Further Developments
+As this is new there may be some bugs in it. Please let me know if you run into them.
 
 Possible future features:
-+ A lookup table could make several features viable:
++ Lookup tables could make several features viable:
   + Extended mission info (zone and questgiver would be handy at the very least)
-  + Mission pinning/favourites, selectively displaying the list of missions with no-cd
+  + Mission pinning/favourites, selectively displaying missions with no cooldown data
   + Minimization of saved data sizes reduces the risk of setting file bloat
-  + Would require updates as new missions come out, though that could be automated (UAC prompt from the app)
-+ Lair cooldowns added to the in-game refresh and cooldown timer window.
+  + Would require updates as new missions come out
+    + There is a slightly complicated method of turning it into a self-learning system
+	+ May require a UAC prompt to implement though
++ Compact list of mission cooldowns as a secondary tab on the timer window, like days of yore
 
-As always, defect reports, suggestions, and contributions are welcome. Message Peloprata in #modding on the SWL discord, or in-game by mail or pm, or leave a message on the Curse or GitHub page.
+As always, defect reports, suggestions, and contributions are welcome. Message Peloprata in #modding on the SWL discord, or in-game by mail or pm, or leave a message on CurseForge or GitHub.
 
 Source Repository: https://github.com/Earthfiredrake/SWL-Clockwatcher
 
-Curse Mirror: TBD
+CurseForge Mirror: https://www.curseforge.com/swlegends/tswl-mods/clockwatcher
 
 ## Building from Source
 Building from flash requires the SWL API. Existing project files are configured for Flash Pro CS5.5 and VS2017.
@@ -70,6 +62,11 @@ Software and source released under the MIT License
 
 TSW, SWL and the related API are copyright (c) 2012 Funcom GmBH<br/>
 
+Curseforge icon adapted from CC licensed artwork: <br/>
+https://www.flickr.com/photos/double-m2/3938357377 <br/>
+https://pixabay.com/en/eye-icon-symbol-look-vision-see-1915455/ <br/>
+
 Special Thanks to:<br/>
 The usual suspects (#modding and the giants of yore)
 Leogrim for the initial spark
+Starfox for the LairCooldowns mod, of which this mod drank deeply
