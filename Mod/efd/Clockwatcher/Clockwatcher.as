@@ -8,6 +8,7 @@ import com.GameInterface.DistributedValue;
 import com.GameInterface.Game.Character;
 import com.GameInterface.Quest;
 import com.GameInterface.Quests;
+import com.GameInterface.Utils;
 import com.Utils.Archive;
 import com.Utils.Colors;
 import com.Utils.LDBFormat;
@@ -32,7 +33,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		super(ModInfo, hostMovie);
 		InitLairMissions();
 		Quests.SignalMissionCompleted.Connect(MissionCompleted, this);
-		LockoutsDV = DistributedValue.Create('lockoutTimers_window');
+		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 	}
 
@@ -82,9 +83,14 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	private function ApplyHook(content:MovieClip):Void {
+		if (!SanityCheck(content)) {
+			ErrorMsg("UI code has changed in a way that conflicts with this mod, modifications to the UI have been cancelled.");
+			return;
+		}
 		content.m_RaidsHeader.text = LocaleManager.FormatString("Clockwatcher", "LockoutSectionTitle", content.m_RaidsHeader.text);
 		var proto:MovieClip = content.m_EliteRaid;
 		var lairs:Array = GetLairList();
+		content.m_Lairs = new Array();
 		for (var i:Number = 0; i < lairs.length; ++i) {
 			var clip:MovieClip = proto.duplicateMovieClip("m_Lair" + lairs[i].zone, content.getNextHighestDepth());
 			clip._x = proto._x;
@@ -92,12 +98,31 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			clip.m_Name.text = LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone));
 			clip.m_Expiry = lairs[i].expiry;
 			clip.UpdateExpiry = UpdateExpiry;
-			clip.UpdateExpiry();
-			clip.onUnload = proto.onUnload;
-			clip.ClearTimeInterval = proto.ClearTimeInterval;
-			clip.m_TimeInterval = setInterval(clip, "UpdateExpiry", 1000);
+			content.m_Lairs.push(clip);
 		}
 		content.SignalSizeChanged.Emit();
+
+		content.UpdateLairs = ContentUpdateLairs;
+		content.ClearTimeInterval = proto.ClearTimeInterval;
+		content.onUnload = onContentUnload;
+		content.m_TimeInterval = setInterval(content, "UpdateLairs", 1000);
+		content.UpdateLairs();
+	}
+
+	private static function SanityCheck(content:MovieClip):Boolean {
+		if (content._height != 300) { return false; }
+		if (content.m_RaidsHeader == undefined) { return false; }
+		if (content.m_EliteRaid == undefined) { return false; }
+		if (content.m_Lairs != undefined) { return false; }
+		if (content.m_TimeInterval != undefined) { return false; }
+		if (content.SignalSizeChanged == undefined) { return false; }
+		if (content.UpdateLairs != undefined) { return false; }
+		if (content.ClearTimeInterval != undefined) { return false; }
+		if (content.hasOwnProperty("onUnload")) { return false; }
+		for (var i:Number = 0; i < LairZones.length; ++i) {
+			if (content["m_Lair" + LairZones[i]] != undefined) { return false; }
+		}
+		return true;
 	}
 
 	private static function GetLairList():Array {
@@ -112,31 +137,48 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			}
 		}
 		// Sort result based on zone
-		var listed:Array = [{zone : 3030}, {zone : 3040}, {zone : 3050},
-							{zone : 3090}, {zone : 3100},
-							{zone : 3120}, {zone : 3130}, {zone : 3140},
-							{zone : 3070}];
-		for (var i:Number = 0; i < listed.length; ++i) {
-			listed[i].expiry = lairs[listed[i].zone];
+		var listed:Array = new Array();
+		for (var i:Number = 0; i < LairZones.length; ++i) {
+			listed.push({zone : LairZones[i], expiry : lairs[LairZones[i]]});
 		}
 		return listed;
 	}
 
-	// Called in context of Lair LockoutEntry movieclip
-	private function UpdateExpiry():Void {
+	// Called in context of LockoutTimersContent movieclip
+	private function onContentUnload():Void {
 		var target:Object = this;
-		var timeStr:String = FormatRemainingTime(target.m_Expiry);
+		target.ClearTimeInterval();
+		target.super.onUnload();
+	}
+
+	private function ContentUpdateLairs():Void {
+		var target:Object = this;
+		var allClear:Boolean = true;
+		var time:Number = Utils.GetServerSyncedTime();
+		for (var i:Number = 0; i < target.m_Lairs.length; ++i) {
+			allClear = allClear && target.m_Lairs[i].UpdateExpiry(time);
+		}
+		if (allClear) { target.ClearTimeInterval(); }
+	}
+
+	// Called in context of Lair LockoutEntry movieclip
+	// Time is in seconds
+	private function UpdateExpiry(time:Number):Boolean {
+		var target:Object = this;
+		var timeStr:String = FormatRemainingTime(target.m_Expiry, time);
 		if (timeStr) { target.m_Lockout.text = timeStr; }
 		else {
 			target.m_Lockout.textColor = Colors.e_ColorGreen;
 			target.m_Lockout.text = LDBFormat.LDBGetText("MiscGUI", "LockoutTimers_Available");
-			target.ClearTimeInterval();
+			return true;
 		}
+		return false;
 	}
 
-	private static function FormatRemainingTime(expiry:Number):String {
+	// Input times are both in seconds
+	private static function FormatRemainingTime(expiry:Number, time:Number):String {
 		if (!expiry) { return undefined; }
-		var remaining:Number = Math.floor(expiry - (new Date().getTime() / 1000));
+		var remaining:Number = Math.floor(expiry - time);
 		if (remaining <= 0) { return undefined; }
 		var hours:String = String(Math.floor(remaining / 3600));
 		if (hours.length == 1) { hours = "0" + hours; }
@@ -148,7 +190,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 /// Variables
-	// TODO: This can be offloaded to a datafile
+	// TODO: These can be offloaded to a datafile
 	private static function InitLairMissions():Void {
 		LairMissions["3434"] = 3030;
 		LairMissions["3445"] = 3030;
@@ -179,6 +221,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		LairMissions["4064"] = 3070;
 	}
 
+	private static var LairZones:Array = [3030, 3040, 3050, 3090, 3100, 3120, 3130, 3140, 3070];
 	private static var LairMissions:Object = new Object();
 	private var LockoutsDV:DistributedValue;
 }
