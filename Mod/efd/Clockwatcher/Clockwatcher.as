@@ -1,6 +1,8 @@
 ﻿// Copyright 2018, Earthfiredrake
 // Released under the terms of the MIT License
 // https://github.com/Earthfiredrake/SWL-Clockwatcher
+//   Lockout timer window hook and lair listing based off LairCooldowns by Starfox
+//   https://lomsglobal.com/threads/starfoxs-mod-depository.2517
 
 import gfx.utils.Delegate;
 

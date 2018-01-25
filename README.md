@@ -6,6 +6,8 @@ A collection of tools to help track mission cooldowns:
 + Offline tracking - The mod saves a list of missions on cooldown. Clockwatcher.exe displays the remaining cooldown times without needing to log into the game
 + Lair Timers - Adds lairs to the lockout timer window (shift-l), listing the longest remaining cooldown among missions in that lair.
 
+Note: CurseForge download does not include Clockwatcher.exe. It is available through GitHub as either a separate download, or as part of the main release.
+
 Mission lists are saved per character.
 
 ## Installation
