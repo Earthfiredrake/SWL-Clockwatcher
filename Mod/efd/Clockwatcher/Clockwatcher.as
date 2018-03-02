@@ -37,7 +37,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	public function Clockwatcher(hostMovie:MovieClip) {
 		super(ModInfo, hostMovie);
 		InitLairMissions();
-		Quests.SignalMissionCompleted.Connect(MissionCompleted, this);
+		Quests.SignalMissionCompleted.Connect(UpdateMissionList, this);
+		AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateMissionList, this);
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 	}
@@ -50,7 +51,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		} else { super.GameToggleModEnabled(state, archive); }
 	}
 
-	private function MissionCompleted(missionID:Number):Void {
+	private function UpdateMissionList():Void {
+		TraceMsg("Updating mission list");
 		DistributedValue.SetDValue("efdClockwatcherConfig", GetMissionList());
 	}
 

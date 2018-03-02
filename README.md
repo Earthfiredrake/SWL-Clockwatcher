@@ -40,6 +40,7 @@ Version 1.0.0
 As this is new there may be some bugs in it. Please let me know if you run into them.
 
 Possible future features:
++ With this and some silly I actually might be able to put icons on the login menu too, will have to see how to make that work
 + Should probably add Incapacitated agents to the tracking too, but I'll wait until they're actually working right
 + Lookup tables could make several features viable:
   + Extended mission info (zone and questgiver would be handy at the very least)
