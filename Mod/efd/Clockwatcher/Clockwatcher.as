@@ -6,6 +6,9 @@
 
 import gfx.utils.Delegate;
 
+import com.GameInterface.AgentSystem;
+import com.GameInterface.AgentSystemAgent;
+import com.GameInterface.AgentSystemMission;
 import com.GameInterface.DistributedValue;
 import com.GameInterface.Game.Character;
 import com.GameInterface.Quest;
@@ -28,7 +31,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug settings at top so that commenting out leaves no hanging ','
 		// Trace : true,
 		Name : "Clockwatcher",
-		Version : "1.0.0"
+		Version : "1.1.0"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -69,9 +72,18 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			}
 		}
 		for (var s:String in lairs) {
-			// Using negative MissionIDs to ensure that proxy missions for lairs are unique
+			// Using negative "MissionIDs" (actually zone IDs) to ensure that proxy missions for lairs are unique
 			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
 		}
+
+		// Agent Missions
+		var agentMissions:Array = AgentSystem.GetActiveMissions();
+		for (var i:Number = 0; i < agentMissions.length; ++i) {
+			var mID:Number = agentMissions[i].m_MissionId;
+			// Also using negative "MissionIDs", in range -1..-3 because there are no viable zones in that range
+			logData.AddEntry("MissionCD", [-(i+1), AgentSystem.GetMissionCompleteTime(mID), "Agent: " + AgentSystem.GetAgentOnMission(mID).m_Name].join('|'));
+		}
+
 		return logData;
 	}
 
@@ -112,7 +124,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	private static function SanityCheck(content:MovieClip):Boolean {
-		if (content._height != 300) { return false; }
+		//if (content._height != 300) { return false; } // Bad test, people might have scaled the window
 		if (content.m_RaidsHeader == undefined) { return false; }
 		if (content.m_EliteRaid == undefined) { return false; }
 		if (content.m_Lairs != undefined) { return false; }

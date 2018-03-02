@@ -25,6 +25,12 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two.
 
 ## Change Log
+Version 1.1.0
++ UI mod update only; missions are missions, the offline tool didn't care about the differences
++ Agent missions have been monkey wrenched in (thank you Amir, please excuse the screaming)
++ Ingame lair cooldowns should now more accurately reflect the mission journal
++ Looks before it leaps; attempts to detect any game updates that would conflict with the lockout window edits before making them
+
 Version 1.0.0
 + Lairs are listed in the lockout timer window (shift-l)
 + Mod saves mission cooldowns on completion, on logout, and intermittently during play
@@ -34,6 +40,7 @@ Version 1.0.0
 As this is new there may be some bugs in it. Please let me know if you run into them.
 
 Possible future features:
++ Should probably add Incapacitated agents to the tracking too, but I'll wait until they're actually working right
 + Lookup tables could make several features viable:
   + Extended mission info (zone and questgiver would be handy at the very least)
   + Mission pinning/favourites, selectively displaying missions with no cooldown data
