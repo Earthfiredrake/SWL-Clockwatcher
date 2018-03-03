@@ -24,7 +24,6 @@ namespace Clockwatcher {
             var t = (TimeSpan)value;
             if (t.TotalSeconds > 0) {
                 return Math.Floor(t.TotalHours) + culture.DateTimeFormat.TimeSeparator + t.Minutes.ToString("00") + culture.DateTimeFormat.TimeSeparator + t.Seconds.ToString("00");
-
             } else { return "Ready!"; }
         }
 

@@ -25,6 +25,9 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two.
 
 ## Change Log
+Version Next
++ Missions now stay sorted when swapping between characters
+
 Version 1.1.0
 + UI mod update only; missions are missions, the offline tool didn't care about the differences
 + Agent missions have been monkey wrenched in (thank you Amir, please excuse the screaming)

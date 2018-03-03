@@ -8,7 +8,7 @@ using System.Windows;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Clockwatcher")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Offline mission cooldown veiwer for SWL Clockwatcher mod")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("Clockwatcher")]
