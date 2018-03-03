@@ -67,10 +67,13 @@ For the ingame components, the flash project can be found in the Mod directory. 
 The C# project in App is for the offline tool, which does not currently have any particular post-build requirements, and can be run from any location.
 
 ## License and Attribution
-Copyright (c) 2018 Earthfiredrake<br/>
+Copyright (c) 2018 Earthfiredrake <br/>
 Software and source released under the MIT License
 
-TSW, SWL and the related API are copyright (c) 2012 Funcom GmBH<br/>
+TSW, SWL and the related API are copyright (c) 2012 Funcom GmBH <br/>
+
+TabContent.cs behaviour copyright (c) Ivan Krivyakov <br/>
+Used under the terms of the Apache License 2.0
 
 Curseforge icon adapted from CC licensed artwork: <br/>
 https://www.flickr.com/photos/double-m2/3938357377 <br/>
