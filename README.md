@@ -1,21 +1,22 @@
 # SWL-Clockwatcher
-Utilities for mission cooldown tracking
+Mission and agent cooldown tracking utilities
 
 ## Overview
-A collection of tools to help track mission cooldowns:
-+ Offline tracking - The mod saves a list of missions on cooldown. Clockwatcher.exe displays the remaining cooldown times without needing to log into the game
-+ Lair Timers - Adds lairs to the lockout timer window (shift-l), listing the longest remaining cooldown among missions in that lair.
+A collection of tools to help track mission and agent cooldowns. Used by itself the mod adds:
++ Lair Timers - to the lockout timer window (shift-l), listing the longest remaining cooldown among missions in that lair
++ Login Agent Status - to character selection, showing an icon if an agent has returned from a mission, or is available to fill an open mission slot
 
-Note: CurseForge download does not include Clockwatcher.exe. It is available through GitHub as either a separate download, or as part of the main release.
+It also provides data support to the offline viewer program (exclusive to GitHub):
++ Offline tracking - Mission/lair cooldown timers and agent mission completion timers can be viewed from outside of the game (or while logged in with a different character)
 
-Mission lists are saved per character.
+Some general settings are saved per account. Offline mission lists are saved per character and can be disabled with `/setoption efdClockwatcherOfflineExport false` if you don't wish to use the viewer.
 
 ## Installation
 The packaged release should be unzipped (including the internal folder) into the listed folder:
 <br/>SWL: [SWL Directory]\Data\Gui\Custom\Flash
 <br/>TSW: [TSW Directory]\Data\Gui\Customized\Flash (Untested, may have unexpected 'features')
 
-The safest method for upgrading (required for installing) is to have the client closed and delete any existing .bxml files in the mod directory. Hotpatching (using /reloadui) works as long as neither Modules.xml or LoginPrefs.xml have changed.
+The safest method for upgrading (required for installing) is to have the client closed and delete any existing .bxml files in the mod directory. Hotpatching (using /reloadui) works as long as neither Modules.xml or any *Prefs.xml files have changed.
 
 Clockwatcher.exe requires v4.6 of the .net framework to be installed which can be downloaded from Microsoft if needed. It will not have any content until the mod has had an opportunity to save some data.
 
@@ -26,7 +27,9 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 
 ## Change Log
 Version Next
-+ Missions now stay sorted when swapping between characters
++ Mod: Agent status now displayed on character selection
++ Mod: /setoption efdClockwatcherOfflineExport added to disable data export if not using viewer
++ Viewer: Mission list retains sort order when swapping between characters
 
 Version 1.1.0
 + UI mod update only; missions are missions, the offline tool didn't care about the differences
@@ -73,7 +76,8 @@ The C# project in App is for the offline tool, which does not currently have any
 Copyright (c) 2018 Earthfiredrake <br/>
 Software and source released under the MIT License
 
-TSW, SWL and the related API are copyright (c) 2012 Funcom GmBH <br/>
+TSW, SWL, the related APIs, and most graphics elements are copyright (c) 2012 Funcom GmBH<br/>
+Used under the terms of the Funcom UI License<br/>
 
 TabContent.cs behaviour copyright (c) Ivan Krivyakov <br/>
 Used under the terms of the Apache License 2.0

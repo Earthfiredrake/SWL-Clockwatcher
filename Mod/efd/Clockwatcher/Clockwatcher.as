@@ -11,6 +11,7 @@ import com.GameInterface.AgentSystemAgent;
 import com.GameInterface.AgentSystemMission;
 import com.GameInterface.DistributedValue;
 import com.GameInterface.Game.Character;
+import com.GameInterface.Lore;
 import com.GameInterface.Quest;
 import com.GameInterface.Quests;
 import com.GameInterface.Utils;
@@ -18,8 +19,13 @@ import com.Utils.Archive;
 import com.Utils.Colors;
 import com.Utils.LDBFormat;
 
+import GUI.LoginCharacterSelection.CharacterListItemRenderer;
+
 import efd.Clockwatcher.lib.LocaleManager;
 import efd.Clockwatcher.lib.Mod;
+
+import efd.Clockwatcher.AgentNotification;
+import efd.Clockwatcher.lib.etu.MovieClipHelper;
 
 // TODO: Playfield names are slightly unwieldy for lair strings, consider revising
 
@@ -31,35 +37,57 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug settings at top so that commenting out leaves no hanging ','
 		// Trace : true,
 		Name : "Clockwatcher",
-		Version : "1.1.0"
+		Version : "1.1.2"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
 		super(ModInfo, hostMovie);
 		InitLairMissions();
-		Quests.SignalMissionCompleted.Connect(UpdateMissionList, this);
-		AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateMissionList, this);
+
+		OfflineExportDV = DistributedValue.Create(DVPrefix + ModName + "OfflineExport");
+
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
+
+		HookCharSelect();
+		AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateAgentEvents, this);
+		AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);
+
+		Quests.SignalMissionCompleted.Connect(SerializeMissions, this);
+		AgentSystem.SignalActiveMissionsUpdated.Connect(SerializeMissions, this);
+	}
+
+	// Despite my best guesses I'm not getting an enable call until I log in
+	//   Advantage: I don't need to worry overly much about writing to a logged out character's settings
+	//   Disadvantage: Going to have to do all my hooking onLoad and fetch the config archive manually
+	//   Decided to go with manual config
+	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
+		if (!state) {
+			SerializeMissions();
+			SerializeGlobal();
+		} else {
+			OfflineExportDV.SetValue(DistributedValue.GetDValue(DVPrefix + ModName + "Global").FindEntry("OfflineExport", true));
+			GetAgentEvent(); // Ensuring that it's cached after a /reloadui
+		}
+		return super.GameToggleModEnabled(state, archive);
+	}
+
+	private function SerializeGlobal():Void {
+		var archive:Archive = new Archive();
+		archive.ReplaceEntry("OfflineExport", OfflineExportDV.GetValue());
+		for (var char:String in AgentEvents) {
+			archive.AddEntry("AgentEvent", char + "|" + AgentEvents[char].toString());
+		}
+		DistributedValue.SetDValue(DVPrefix + ModName + "Global", archive);
 	}
 
 /// Offline cooldown tracking
-	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
-		if (!state) {
-			super.GameToggleModEnabled(state);
-			return GetMissionList();
-		} else { super.GameToggleModEnabled(state, archive); }
-	}
-
-	private function UpdateMissionList():Void {
+	private function SerializeMissions():Void {
 		TraceMsg("Updating mission list");
-		DistributedValue.SetDValue("efdClockwatcherConfig", GetMissionList());
-	}
-
-	private static function GetMissionList():Archive {
+		if (!OfflineExportDV.GetValue()) { return; }
 		// Uses default array serialization and no actual persisting state
-		var logData:Archive = new Archive();
-		logData.AddEntry("CharName", Character.GetClientCharacter().GetName());
+		var outArchive:Archive = new Archive();
+		outArchive.AddEntry("CharName", Character.GetClientCharacter().GetName());
 		var lairs:Object = new Object();
 		var cdQuests:Array = Quests.GetAllQuestsOnCooldown(); // Uncertain if no-repeat quests can end up in this list
 		for (var i:Number = 0; i < cdQuests.length; ++i) {
@@ -70,12 +98,12 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 					q.m_CooldownExpireTime;
 			} else {
 				// Cooldown expiries are in Unix std time format
-				logData.AddEntry("MissionCD", [q.m_ID, q.m_CooldownExpireTime, q.m_MissionName].join('|'));
+				outArchive.AddEntry("MissionCD", [q.m_ID, q.m_CooldownExpireTime, q.m_MissionName].join('|'));
 			}
 		}
 		for (var s:String in lairs) {
 			// Using negative "MissionIDs" (actually zone IDs) to ensure that proxy missions for lairs are unique
-			logData.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
+			outArchive.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
 		}
 
 		// Agent Missions
@@ -83,10 +111,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		for (var i:Number = 0; i < agentMissions.length; ++i) {
 			var mID:Number = agentMissions[i].m_MissionId;
 			// Also using negative "MissionIDs", in range -1..-3 because there are no viable zones in that range
-			logData.AddEntry("MissionCD", [-(i+1), AgentSystem.GetMissionCompleteTime(mID), "Agent: " + AgentSystem.GetAgentOnMission(mID).m_Name].join('|'));
+			outArchive.AddEntry("MissionCD", [-(i+1), AgentSystem.GetMissionCompleteTime(mID), "Agent: " + AgentSystem.GetAgentOnMission(mID).m_Name].join('|'));
 		}
 
-		return logData;
+		DistributedValue.SetDValue(DVPrefix + ModName + "MissionList", outArchive);
 	}
 
 /// Timer window lair tracking
@@ -205,6 +233,74 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		return hours + ":" + minutes + ":" + seconds;
 	}
 
+/// Character select agent notifications
+	private function HookCharSelect():Void {
+		if (CharacterListItemRenderer.prototype == undefined) { Mod.LogMsg("Uhoh"); return; }
+		if (CharacterListItemRenderer.prototype._UpdateVisuals == undefined) {
+			CharacterListItemRenderer.prototype._UpdateVisuals = CharacterListItemRenderer.prototype["UpdateVisuals"];
+			CharacterListItemRenderer.prototype["UpdateVisuals"] = function():Void {
+				this._UpdateVisuals();
+				if (this.data == undefined || this.data.m_CreateCharacter) { return; }
+				var agentEventTime = Clockwatcher.GetAgentEvent(this.data.m_Id);
+				if (agentEventTime != undefined && agentEventTime <= Utils.GetServerSyncedTime()) {
+					var agentAlert:MovieClip = this.createEmptyMovieClip("AgentAlert", this.getNextHighestDepth());
+					agentAlert.loadMovie("Clockwatcher\\gfx\\AgentAlert.png");
+					agentAlert._x = 10;
+					agentAlert._y = this.m_Level._y + 19;
+				}
+			};
+		}
+	}
+
+	// If done onLoad the mod won't have access to the settings yet
+	// Waiting until onActivate requires it to finish logging in, which is no more useful
+	// Trying for a lazy load, it had better exist when I need it
+	public static function GetAgentEvent(charID:Number):Object {
+		if (AgentEvents == undefined) {
+			AgentEvents = new Object();
+			var agentTimes:Array = DistributedValue.GetDValue(DVPrefix + "ClockwatcherGlobal").FindEntryArray("AgentEvent");
+			for (var i:Number = 0; i < agentTimes.length; ++i) {
+				var split:Array = agentTimes[i].split('|');
+				AgentEvents[split[0]] = Number(split[1]);
+			}
+		}
+		return AgentEvents[charID];
+	}
+
+	private function UpdateAgentEvents():Void {
+		AgentEvents[Character.GetClientCharID().m_Instance] = NextAgentEventTime();
+		SerializeGlobal();
+	}
+
+	// Returns the lowest of: Completion times for active missions and recovery times for agents (to fill an open mission slot)
+	// Undefined if there are no agents
+	// Assumes that it is impossible to totally drain the mission pool
+	private function NextAgentEventTime():Number {
+		var unlockedSlots:Number = Lore.IsLocked(10638) ? 1 : 2;
+		unlockedSlots += Character.GetClientCharacter().IsMember() ? 1 : 0;
+		var activeMissions:Array = AgentSystem.GetActiveMissions();
+		var agents:Array = AgentSystem.GetAgents();
+		if (!agents.length) { return undefined; }
+
+		var eventTime:Number = Number.POSITIVE_INFINITY;
+		for (var i:Number = 0; i < activeMissions.length; ++i) {
+			eventTime = Math.min(eventTime, AgentSystem.GetMissionCompleteTime(activeMissions[i].m_MissionId));
+		}
+
+		// Open mission slot, see if there's any agents able to fill it, or if one will recover from fatigue before a mission ends
+		if (activeMissions.length < unlockedSlots) {
+			for (var i:Number = 0; i < agents.length; ++i) {
+				var agentID:Number = agents[i].m_AgentId;
+				if (!AgentSystem.HasAgent(agentID) || AgentSystem.IsAgentOnMission(agentID)) { continue; } // Mission timess are already accounted for
+				if (AgentSystem.IsAgentFatigued(agentID)) { eventTime = Math.min(eventTime, AgentSystem.GetAgentRecoverTime(agentID)); }
+				else { return 0; } // Agent and open mission available
+			}
+		}
+
+		if (eventTime == Number.POSITIVE_INFINITY) { TraceMsg("Next agent event time is infinite"); }
+		return eventTime;
+	}
+
 /// Variables
 	// TODO: These can be offloaded to a datafile
 	private static function InitLairMissions():Void {
@@ -240,4 +336,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private static var LairZones:Array = [3030, 3040, 3050, 3090, 3100, 3120, 3130, 3140, 3070];
 	private static var LairMissions:Object = new Object();
 	private var LockoutsDV:DistributedValue;
+
+	private static var AgentEvents:Object; // [charID] = eventTime map
+
+	private var OfflineExportDV:DistributedValue;
 }

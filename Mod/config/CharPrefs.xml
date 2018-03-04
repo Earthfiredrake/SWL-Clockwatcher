@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Root>
-  <Value name="efdGameEnablesClockwatcher" value="true"/>
-  <Archive name="efdClockwatcherConfig"/>
+  <Archive name="efdClockwatcherMissionList"/>
 </Root>

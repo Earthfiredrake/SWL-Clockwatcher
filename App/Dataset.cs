@@ -47,40 +47,50 @@ namespace Clockwatcher {
         }
 
         private IEnumerable<string> FindCharacterFiles() {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
-            return from dirA in Directory.EnumerateDirectories(path) // Accounts
-                   from dirB in Directory.EnumerateDirectories(dirA, "Char*") // Char# directories
-                   select Path.Combine(dirB, "Prefs_2.xml"); // Pref files
+            return from account in Directory.EnumerateDirectories(PrefsPath)
+                   from character in Directory.EnumerateDirectories(account, CharDirFilter)
+                   select Path.Combine(character, PrefsFileName);
         }
 
         private CharacterMissions ExtractCharacterMissions(string settingsFilePath) {
             Debug.Assert(File.Exists(settingsFilePath));
-            var trackerData = (from e in XElement.Load(settingsFilePath).Elements("Archive")
-                               where (string)e.Attribute("name") == "efdClockwatcherConfig"
-                               select e).SingleOrDefault();
-            // Mod not in use on this character (no mod archive), no tab required
-            // Characters who only lack mission entries, are listed to show they have no cooldowns active
-            if (trackerData == null) { return null; }
-            // Character name should be in saved data, otherwise use the Char# folder name which isn't so informative
-            var charName = ((string)(from e in trackerData.Elements("String")
-                                     where (string)e.Attribute("name") == "CharName"
-                                     select e).SingleOrDefault()?.Attribute("value"))?.Trim('"')
-                            ?? Directory.GetParent(settingsFilePath).Name;
-            // Coerce the serialization difference between a single and multi element array into a single IEnumerable
-            var source = (from e in trackerData.Elements("Array")
-                          where (string)e.Attribute("name") == "MissionCD"
-                          select e).SingleOrDefault()?.Elements("String")
-                        ?? (from e in trackerData.Elements("String")
-                            where (string)e.Attribute("name") == "MissionCD"
-                            select e);
-            var missions = from e in source
-                           select new Mission(((string)e.Attribute("value")).Trim('"'));
-            return new CharacterMissions(charName, missions);
+            try {
+                var trackerData = (from e in XElement.Load(settingsFilePath).Elements("Archive")
+                                   where (string)e.Attribute("name") == CWArchiveName
+                                   select e).SingleOrDefault();
+                // Mod not in use on this character (no mod archive), no tab required
+                // Characters who only lack mission entries, are listed to show they have no cooldowns active
+                if (trackerData == null) { return null; }
+                // Character name should be in saved data, otherwise use the Char# folder name which isn't so informative
+                var charName = ((string)(from e in trackerData.Elements("String")
+                                         where (string)e.Attribute("name") == "CharName"
+                                         select e).SingleOrDefault()?.Attribute("value"))?.Trim('"')
+                                ?? Directory.GetParent(settingsFilePath).Name;
+                // Coerce the serialization difference between a single and multi element array into a single IEnumerable
+                var source = (from e in trackerData.Elements("Array")
+                              where (string)e.Attribute("name") == "MissionCD"
+                              select e).SingleOrDefault()?.Elements("String")
+                            ?? (from e in trackerData.Elements("String")
+                                where (string)e.Attribute("name") == "MissionCD"
+                                select e);
+                var missions = from e in source
+                               select new Mission(((string)e.Attribute("value")).Trim('"'));
+                return new CharacterMissions(charName, missions);
+            } catch (IOException) {
+                // File in use or other issue... either way no data from this one, so skip it
+                return null;
+            }
         }
 
         public ICollection<CharacterMissions> CharacterMissionLists { get; } = new ObservableCollection<CharacterMissions>();
         public ICommand RefreshCommand { get; }
         private readonly Timer RefreshTimer = new Timer(5000);
+
+        private static readonly string PrefsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
+        private const string CharDirFilter = "Char*";
+        private const string PrefsFileName = "Prefs_2.xml";
+
+        private const string CWArchiveName = "efdClockwatcherMissionList";
     }
 
     // Nested data
