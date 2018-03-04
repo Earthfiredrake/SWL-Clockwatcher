@@ -34,10 +34,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	// Leaving this one as classic, hardly anything in it
 	// Stateless mod, minimal subsystems
 	private static var ModInfo:Object = {
-		// Debug settings at top so that commenting out leaves no hanging ','
-		// Trace : true,
+		// Debug setting at top so that commenting out leaves no hanging ','
+		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.1.2"
+		Version : "1.2.0"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -60,7 +60,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	// Despite my best guesses I'm not getting an enable call until I log in
 	//   Advantage: I don't need to worry overly much about writing to a logged out character's settings
 	//   Disadvantage: Going to have to do all my hooking onLoad and fetch the config archive manually
-	//   Decided to go with manual config
+	//   Decided to go with manual config instead of the framework version for now
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
 		if (!state) {
 			SerializeMissions();
