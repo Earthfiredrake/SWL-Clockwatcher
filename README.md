@@ -7,7 +7,7 @@ A collection of tools to help track mission and agent cooldowns. Used by itself 
 + Login Agent Status - character selection; shows an icon if an agent mission is complete or an agent and open mission slot are both available
 
 It also provides data support to the offline viewer program (exclusive to GitHub):
-+ Offline tracking - Mission/lair cooldown timers and agent mission completion timers can be viewed from outside of the game (or while on an alt)
++ Offline tracking - Mission/lair cooldown timers and agent mission completion and recovery timers can be viewed from outside of the game (or while on an alt)
 
 Some general settings are saved per account. Offline mission lists are saved per character and can be disabled with `/setoption efdClockwatcherOfflineExport false` if you don't wish to use the viewer.
 
@@ -24,9 +24,18 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 + When the mod is first used, each character must be logged in once to cache data for either the offline or login displays.
 + Each lair's missions share a single entry in both the timer window and offline tracking tool, and the listed time is the longest of those missions' cooldowns
 + Clockwatcher.exe automatically does a minor refresh to update the time display, but will only load new data on manual refreshes. This merges new data with that already loaded, retaining any "Ready!" missions until the program exits
-+ Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two.
++ Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two
+  + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered.
 
 ## Change Log
+Version 1.2.1
++ Mod: No longer converts lost connections into desktop visits (crash fix)
++ Mod/Viewer: Now exports recovery times for incapacitated agents
++ Viewer: Colour coding for lairs (lavender) and agents (blue on mission or red when recovering)
+  + Due to data mapping changes, agents may appear with lair colouring until all the character caches are refreshed
++ Viewer: Added a button to clear the "Ready" mission entries from the display
+  +  If they still exist in the data cache they will be reloaded with the next manual refresh
+
 Version 1.2.0
 + Mod: Agent status now displayed on character selection
 + Mod: /setoption efdClockwatcherOfflineExport added to disable data export if not using viewer

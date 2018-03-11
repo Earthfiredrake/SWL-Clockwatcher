@@ -17,12 +17,13 @@ using System.Xml.Linq;
 namespace Clockwatcher {
     internal class Dataset {
         internal Dataset() {
+            ClearReadyCommand = new CommandWrapper(o => ClearReady(), o => true);
             RefreshCommand = new CommandWrapper(o => Refresh(true), o => true);
             RefreshTimer.Elapsed += (sender, e) => Refresh(false);
             Refresh(true);
         }
 
-        internal void Refresh(bool reload) {
+        private void Refresh(bool reload) {
             RefreshTimer.Enabled = false;
             if (reload) { // Load settings files
                 foreach (var charFile in FindCharacterFiles()) {
@@ -32,7 +33,7 @@ namespace Clockwatcher {
                                         where e.CharName == charData.CharName
                                         select e).SingleOrDefault();
                         if (existing != null) { // Merge with existing character record
-                            existing.Merge(charData.MissionList);
+                            existing.Merge(charData.TimerList);
                         } else { // Add new character
                             CharacterMissionLists.Add(charData);
                         }
@@ -41,9 +42,15 @@ namespace Clockwatcher {
             }
             // Update time displays
             foreach (var m in from c in CharacterMissionLists
-                              from m in c.MissionList
-                              select m) { m.Refresh(); }
+                              from m in c.TimerList
+                              select m) { m.Refresh(reload); }
             RefreshTimer.Enabled = true;
+        }
+
+        private void ClearReady() {
+            foreach (var character in CharacterMissionLists) {
+                character.ClearReady();
+            }
         }
 
         private IEnumerable<string> FindCharacterFiles() {
@@ -52,7 +59,7 @@ namespace Clockwatcher {
                    select Path.Combine(character, PrefsFileName);
         }
 
-        private CharacterMissions ExtractCharacterMissions(string settingsFilePath) {
+        private CharacterTimers ExtractCharacterMissions(string settingsFilePath) {
             Debug.Assert(File.Exists(settingsFilePath));
             try {
                 var trackerData = (from e in XElement.Load(settingsFilePath).Elements("Archive")
@@ -67,23 +74,30 @@ namespace Clockwatcher {
                                          select e).SingleOrDefault()?.Attribute("value"))?.Trim('"')
                                 ?? Directory.GetParent(settingsFilePath).Name;
                 // Coerce the serialization difference between a single and multi element array into a single IEnumerable
-                var source = (from e in trackerData.Elements("Array")
-                              where (string)e.Attribute("name") == "MissionCD"
-                              select e).SingleOrDefault()?.Elements("String")
-                            ?? (from e in trackerData.Elements("String")
-                                where (string)e.Attribute("name") == "MissionCD"
-                                select e);
-                var missions = from e in source
-                               select new Mission(((string)e.Attribute("value")).Trim('"'));
-                return new CharacterMissions(charName, missions);
+                var missions = from e in EnumerateArchiveEntry(trackerData, "MissionCD")
+                               select new MissionTimer(((string)e.Attribute("value")).Trim('"'));
+                var agents = from e in EnumerateArchiveEntry(trackerData, "AgentCD")
+                             select new AgentTimer(((string)e.Attribute("value")).Trim('"'));
+                return new CharacterTimers(charName, Enumerable.Empty<TimerEntry>().Concat(missions).Concat(agents));
             } catch (IOException) {
                 // File in use or other issue... either way no data from this one, so skip it
                 return null;
             }
         }
 
-        public ICollection<CharacterMissions> CharacterMissionLists { get; } = new ObservableCollection<CharacterMissions>();
+        // Multi and single element arrays serialize differently, this coerces them into a single IEnumerable structure
+        private IEnumerable<XElement> EnumerateArchiveEntry(XElement archive, string tag) {
+            return (from e in archive.Elements("Array")
+                    where (string)e.Attribute("name") == tag
+                    select e).SingleOrDefault()?.Elements("String")
+                    ?? (from e in archive.Elements("String")
+                        where (string)e.Attribute("name") == tag
+                        select e);
+        }
+
+        public ICollection<CharacterTimers> CharacterMissionLists { get; } = new ObservableCollection<CharacterTimers>();
         public ICommand RefreshCommand { get; }
+        public ICommand ClearReadyCommand { get; }
         private readonly Timer RefreshTimer = new Timer(5000);
 
         private static readonly string PrefsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
@@ -95,46 +109,90 @@ namespace Clockwatcher {
 
     // Nested data
 
-    internal class CharacterMissions {
-        internal CharacterMissions(string charName, IEnumerable<Mission> missions) {
+    internal class CharacterTimers : INotifyPropertyChanged {
+        internal CharacterTimers(string charName, IEnumerable<TimerEntry> timers) {
             CharName = charName;
-            var view = CollectionViewSource.GetDefaultView(MissionList);
-            view.SortDescriptions.Add(new SortDescription(nameof(Mission.RemainingTime), ListSortDirection.Ascending));
+
+            TimerList = new ObservableCollection<TimerEntry>(timers);
+
+            var view = CollectionViewSource.GetDefaultView(TimerList);
+            view.SortDescriptions.Add(new SortDescription(nameof(TimerEntry.RemainingTime), ListSortDirection.Ascending));
             ((ICollectionViewLiveShaping)view).IsLiveSorting = true;
-            Merge(missions);
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimerList)));
         }
 
-        internal void Merge(IEnumerable<Mission> additional) {
-            foreach (var m in additional) {
-                var existing = MissionList.FirstOrDefault((x) => x.ID == m.ID);
+        internal void Merge(IEnumerable<TimerEntry> other) {
+            foreach (var t in other) {
+                var existing = TimerList.FirstOrDefault((x) => x.ID == t.ID);
                 if (existing != null) {
-                    existing.UnlockTime = m.UnlockTime;
-                    // Refresh cycle will trigger PropertyChanged
-                } else { MissionList.Add(m); }
+                    existing.UnlockTime = t.UnlockTime;
+                    if (existing.Class != t.Class) { existing.ChangeTimerClass(t.Class); }
+                } else { TimerList.Add(t); }
             }
         }
 
-        public string CharName { get; }
-        public ICollection<Mission> MissionList { get; } = new ObservableCollection<Mission>();
-    }
-
-    internal class Mission : INotifyPropertyChanged {
-
-        internal Mission(string missionInfo) {
-            var entries = missionInfo.Split('|');
-            ID = int.Parse(entries[0]);
-            Name = entries[2];
-            UnlockTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(entries[1])).LocalDateTime;
+        internal void ClearReady() {
+            foreach (var tReady in (from t in TimerList
+                               where t.IsReady
+                               select t).ToList()) {
+                TimerList.Remove(tReady);
+            }
         }
 
-        internal void Refresh() { PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RemainingTime))); }
-
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public string CharName { get; }
+        public ICollection<TimerEntry> TimerList { get; }
+    }
+
+    internal enum TimerClass { AgentMission, AgentRecovery, Lair, Mission }
+
+    internal abstract class TimerEntry : INotifyPropertyChanged {
+
+        protected internal TimerEntry(string entryData) {
+            var dataFields = entryData.Split('|');
+            ID = int.Parse(dataFields[0]);
+            Name = dataFields[2];
+            UnlockTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(dataFields[1])).LocalDateTime;
+        }
+
+        internal void Refresh(bool reload) => RaisePropertyChanged(nameof(RemainingTime));
+        internal abstract void ChangeTimerClass(TimerClass newClass);
 
         internal int ID { get; }
         public string Name { get; }
         internal DateTimeOffset UnlockTime { get; set; }
-        public TimeSpan RemainingTime { get => UnlockTime - DateTime.Now; }
+        public TimeSpan RemainingTime => UnlockTime - DateTime.Now;
+        internal bool IsReady => RemainingTime.TotalSeconds <= 0;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void RaisePropertyChanged(string propertyName) { PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName)); }
+
+        public abstract TimerClass Class { get; }
+    }
+
+    internal class AgentTimer : TimerEntry, INotifyPropertyChanged {
+        internal AgentTimer(string agentInfo) : base(agentInfo) {
+            IsRecovering = Boolean.Parse(agentInfo.Split('|')[3]);
+        }
+
+        internal override void ChangeTimerClass(TimerClass newClass) {
+            IsRecovering = newClass == TimerClass.AgentRecovery;
+            RaisePropertyChanged(nameof(Class));
+        }
+
+        private bool IsRecovering { get; set; }
+        public override TimerClass Class => IsRecovering ? TimerClass.AgentRecovery : TimerClass.AgentMission;
+    }
+
+    internal class MissionTimer : TimerEntry {
+        internal MissionTimer(string missionInfo) : base(missionInfo) { }
+
+        // Mission classes are unique by ID, they should not change
+        internal override void ChangeTimerClass(TimerClass newClass) { throw new NotSupportedException(); }
+
+        public override TimerClass Class => ID > 0 ? TimerClass.Mission : TimerClass.Lair;
     }
 
     // Helper classes

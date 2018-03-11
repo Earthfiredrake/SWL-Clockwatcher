@@ -6,6 +6,7 @@
 
 import gfx.utils.Delegate;
 
+import com.GameInterface.AccountManagement;
 import com.GameInterface.AgentSystem;
 import com.GameInterface.AgentSystemAgent;
 import com.GameInterface.AgentSystemMission;
@@ -19,8 +20,12 @@ import com.Utils.Archive;
 import com.Utils.Colors;
 import com.Utils.LDBFormat;
 
+// Note: By including this, and because it does not remain pre-loaded at all times, this mod doesn't do perfect code injection
+//   Specifically, after a /reloadui, this mod's copy will be the one used to re-generate the prototype
+//   Unless this changes, maintainers should be careful to track this file in the API so that updates can be released in a timely manner
 import GUI.LoginCharacterSelection.CharacterListItemRenderer;
 
+import efd.Clockwatcher.lib.DebugUtils;
 import efd.Clockwatcher.lib.LocaleManager;
 import efd.Clockwatcher.lib.Mod;
 
@@ -37,7 +42,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.2.0"
+		Version : "1.2.1"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -45,16 +50,12 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		InitLairMissions();
 
 		OfflineExportDV = DistributedValue.Create(DVPrefix + ModName + "OfflineExport");
+		OfflineExportDV.SignalChanged.Connect(ToggleOfflineData, this);
 
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 
 		HookCharSelect();
-		AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateAgentEvents, this);
-		AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);
-
-		Quests.SignalMissionCompleted.Connect(SerializeMissions, this);
-		AgentSystem.SignalActiveMissionsUpdated.Connect(SerializeMissions, this);
 	}
 
 	// Despite my best guesses I'm not getting an enable call until I log in
@@ -62,19 +63,25 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	//   Disadvantage: Going to have to do all my hooking onLoad and fetch the config archive manually
 	//   Decided to go with manual config instead of the framework version for now
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
-		if (!state) {
-			SerializeMissions();
-			SerializeGlobal();
-		} else {
+		if (state) {
 			OfflineExportDV.SetValue(DistributedValue.GetDValue(DVPrefix + ModName + "Global").FindEntry("OfflineExport", true));
-			GetAgentEvent(); // Ensuring that it's cached after a /reloadui
+			GetOfflineAgentEvent(); // Ensuring that it's cached after a /reloadui so that it is serialized properly
+			AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateAgentEvents, this);
+			AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);
+		} else {
+			AgentSystem.SignalActiveMissionsUpdated.Disconnect(UpdateAgentEvents, this);
+			AgentSystem.SignalAgentStatusUpdated.Disconnect(UpdateAgentEvents, this);
+			SerializeGlobal();
+			if (OfflineExportDV.GetValue()) { SerializeOfflineData(); }
+			else { DistributedValue.SetDValue(DVPrefix + ModName + "MissionList", null); }
+			OfflineExportDV.SetValue(false); // Toggling this when the mod is off ensures that the signals are properly reconnected when changing characters?
 		}
 		return super.GameToggleModEnabled(state, archive);
 	}
 
 	private function SerializeGlobal():Void {
 		var archive:Archive = new Archive();
-		archive.ReplaceEntry("OfflineExport", OfflineExportDV.GetValue());
+		archive.AddEntry("OfflineExport", OfflineExportDV.GetValue());
 		for (var char:String in AgentEvents) {
 			archive.AddEntry("AgentEvent", char + "|" + AgentEvents[char].toString());
 		}
@@ -82,10 +89,20 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 /// Offline cooldown tracking
-	private function SerializeMissions():Void {
-		TraceMsg("Updating mission list");
-		if (!OfflineExportDV.GetValue()) { return; }
-		// Uses default array serialization and no actual persisting state
+	private function ToggleOfflineData(dv:DistributedValue):Void {
+		if (dv.GetValue()) {
+			Quests.SignalMissionCompleted.Connect(SerializeOfflineData, this);
+			AgentSystem.SignalActiveMissionsUpdated.Connect(SerializeOfflineData, this);
+			AgentSystem.SignalAgentStatusUpdated.Connect(SerializeOfflineData, this);
+		} else {
+			Quests.SignalMissionCompleted.Disconnect(SerializeOfflineData, this);
+			AgentSystem.SignalActiveMissionsUpdated.Disconnect(SerializeOfflineData, this);
+			AgentSystem.SignalAgentStatusUpdated.Disconnect(SerializeOfflineData, this);
+		}
+	}
+
+	private function SerializeOfflineData():Void {
+		if (AccountManagement.GetInstance().GetLoginState() == _global.Enums.LoginState.e_LoginStateWaitingForGameServerConnection) { return; } // Client has DCed from server which will cause a crash when accessing the Agent system, avoid it by skipping the update
 		var outArchive:Archive = new Archive();
 		outArchive.AddEntry("CharName", Character.GetClientCharacter().GetName());
 		var lairs:Object = new Object();
@@ -102,16 +119,25 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			}
 		}
 		for (var s:String in lairs) {
-			// Using negative "MissionIDs" (actually zone IDs) to ensure that proxy missions for lairs are unique
+			// Using negative "MissionIDs" (actually zone IDs) to ensure that proxy missions for lairs are unique (zoneIDs have collisions with missionIDs)
 			outArchive.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
 		}
 
+		// Agent IDs do not conflict with mission IDs, so make use of their given range
+		// Since being on a mission and incapaciteted are exclusive possibilities, there should be no issue with sharing the same (unique/agent) ID range
 		// Agent Missions
 		var agentMissions:Array = AgentSystem.GetActiveMissions();
 		for (var i:Number = 0; i < agentMissions.length; ++i) {
 			var mID:Number = agentMissions[i].m_MissionId;
-			// Also using negative "MissionIDs", in range -1..-3 because there are no viable zones in that range
-			outArchive.AddEntry("MissionCD", [-(i+1), AgentSystem.GetMissionCompleteTime(mID), "Agent: " + AgentSystem.GetAgentOnMission(mID).m_Name].join('|'));
+			var agent:AgentSystemAgent = AgentSystem.GetAgentOnMission(mID);
+			outArchive.AddEntry("AgentCD", [agent.m_AgentId, AgentSystem.GetMissionCompleteTime(mID), agent.m_Name, false].join('|'));
+		}
+		// Incapacitated Agents
+		var agents:Array = AgentSystem.GetAgents();
+		for (var i:Number = 0; i < agents.length; ++i) {
+			var agent:AgentSystemAgent = agents[i];
+			var aID:Number = agent.m_AgentId;
+			if (AgentSystem.IsAgentFatigued(aID)) { outArchive.AddEntry("AgentCD", [aID, AgentSystem.GetAgentRecoverTime(aID), agent.m_Name, true].join('|')); }
 		}
 
 		DistributedValue.SetDValue(DVPrefix + ModName + "MissionList", outArchive);
@@ -235,27 +261,32 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 
 /// Character select agent notifications
 	private function HookCharSelect():Void {
-		if (CharacterListItemRenderer.prototype == undefined) { Mod.LogMsg("Uhoh"); return; }
 		if (CharacterListItemRenderer.prototype._UpdateVisuals == undefined) {
 			CharacterListItemRenderer.prototype._UpdateVisuals = CharacterListItemRenderer.prototype["UpdateVisuals"];
 			CharacterListItemRenderer.prototype["UpdateVisuals"] = function():Void {
+				// TODO: Something in here has been causing an infrequent crash when first starting up the game (for me only)
+				//       Currently testing whether it is helpful to defer the layout pass after requesting the image load
 				this._UpdateVisuals();
 				if (this.data == undefined || this.data.m_CreateCharacter) { return; }
-				var agentEventTime = Clockwatcher.GetAgentEvent(this.data.m_Id);
+				var agentEventTime = Clockwatcher.GetOfflineAgentEvent(this.data.m_Id);
 				if (agentEventTime != undefined && agentEventTime <= Utils.GetServerSyncedTime()) {
 					var agentAlert:MovieClip = this.createEmptyMovieClip("AgentAlert", this.getNextHighestDepth());
 					agentAlert.loadMovie("Clockwatcher\\gfx\\AgentAlert.png");
-					agentAlert._x = 10;
-					agentAlert._y = this.m_Level._y + 19;
+					setTimeout(Clockwatcher.InsertAgentAlert, 50, agentAlert, 10, this.m_Level._y + 19);
 				}
 			};
 		}
 	}
 
+	private static function InsertAgentAlert(target:MovieClip, x:Number, y:Number):Void {
+		target._x = x;
+		target._y = y;
+	}
+
 	// If done onLoad the mod won't have access to the settings yet
 	// Waiting until onActivate requires it to finish logging in, which is no more useful
 	// Trying for a lazy load, it had better exist when I need it
-	public static function GetAgentEvent(charID:Number):Object {
+	public static function GetOfflineAgentEvent(charID:Number):Object {
 		if (AgentEvents == undefined) {
 			AgentEvents = new Object();
 			var agentTimes:Array = DistributedValue.GetDValue(DVPrefix + "ClockwatcherGlobal").FindEntryArray("AgentEvent");
@@ -341,3 +372,9 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 
 	private var OfflineExportDV:DistributedValue;
 }
+
+// Notes on ID ranges:
+//   - Playzone IDs: In general range from 1000-8000 but will probably expand
+//                   Open world zones (with lairs) currently fit into the 3000-3200 range (with some space for expansion)
+//   - Agent IDs: Range from 100-300
+//   - Mission IDs: Range from 2000 - 5000, known collisions on relevant playzone IDs

@@ -10,12 +10,16 @@
     <Window.Resources>
         <local:TimeFormatConverter x:Key="timeFormatter" />
     </Window.Resources>
-    <Grid>
+    <Grid Margin="0,0,0,3">
         <Grid.RowDefinitions>
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TabControl Margin="10,10,10,5"
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <TabControl Margin="10,10,10,5" Grid.ColumnSpan="2"
                     ItemsSource="{Binding CharacterMissionLists}" SelectedIndex="0"
                     ikrv:TabContent.IsCached="True">
             <TabControl.ItemTemplate>
@@ -24,10 +28,10 @@
                 </DataTemplate>
             </TabControl.ItemTemplate>
             <ikrv:TabContent.Template>
-                <DataTemplate>
-                    <DataGrid ItemsSource="{Binding MissionList}" CanUserAddRows="False" CanUserDeleteRows="False" RowDetailsVisibilityMode="Collapsed" AutoGenerateColumns="False">
+                <DataTemplate DataType="{x:Type local:CharacterTimers}">
+                    <DataGrid ItemsSource="{Binding TimerList}" CanUserAddRows="False" CanUserDeleteRows="False" RowDetailsVisibilityMode="Collapsed" AutoGenerateColumns="False" IsReadOnly="True" KeyboardNavigation.TabNavigation="None">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding Name}" Header="Mission" IsReadOnly="True">
+                            <DataGridTextColumn Binding="{Binding Name}" Header="Timer" IsReadOnly="True">
                                 <DataGridTextColumn.HeaderStyle>
                                     <Style TargetType="DataGridColumnHeader">
                                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -47,10 +51,27 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                         </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Class}" Value="{x:Static local:TimerClass.AgentMission}">
+                                        <Setter Property="Background" Value="#FF90A9CD" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Class}" Value="{x:Static local:TimerClass.AgentRecovery}">
+                                        <Setter Property="Background" Value="#FFEA796D" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Class}" Value="{x:Static local:TimerClass.Lair}">
+                                        <Setter Property="Background" Value="#FFB790C9" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
                     </DataGrid>
                 </DataTemplate>
             </ikrv:TabContent.Template>
         </TabControl>
-        <Button Content="Refresh" Width="75" Grid.Row="1" Command="{Binding RefreshCommand}"/>
+        <Button Content="Refresh" Width="75" Grid.Row="1" Command="{Binding RefreshCommand}" HorizontalAlignment="Center"/>
+        <Button Content="Clear Ready" Width="75" Grid.Row="1" Command="{Binding ClearReadyCommand}" HorizontalAlignment="Center" Grid.Column="1"/>
     </Grid>
 </Window>
