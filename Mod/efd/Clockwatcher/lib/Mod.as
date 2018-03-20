@@ -14,8 +14,9 @@ import efd.Clockwatcher.lib.DebugUtils;
 // TODO: Finish tidying up the last components
 import efd.Clockwatcher.lib.LocaleManager;
 
-// Mod Framework v1.1.0
-// See ModInfo.LibUpgrades for upgrade requirements
+// Mod Framework v1.1.1
+// Revision numbers are for internal merge tracking only, and do not require an upgrade notification
+// See ConfigManager for notification format
 
 //   The following DistributedValue names are reserved for use by the framework; some are hard-coded, some are just convenient standardized names:
 //   [pfx] is a developer unique prefix (I use 'efd'), [Name] is the name of the mod
@@ -85,14 +86,12 @@ class efd.Clockwatcher.lib.Mod {
 	//     Some subsystems have dependencies, Mod ensures correct initialization order but the mod author is responsible for including all dependencies
 	//     For full details on dependencies, and param contents, consult the subsystem .as files
 
-	public function Mod(modInfo:Object, hostClip:MovieClip) {
-		Debug = DebugUtils.StaticInit(modInfo.Name || "Unnamed", DVPrefix, modInfo.Debug);
-		DebugUtils.SignalFatalError.Connect(OnFatalError, this);
+	// TODO: Subsystems are currently locked into particular keys
+	//       Would like to make this a more flexible component based system
 
-		// TEMP: Compatibility shim while migrating from Mod to DebugUtils
-		ErrorMsg = DebugUtils.ErrorMsgS;
-		TraceMsg = DebugUtils.TraceMsgS;
-		LogMsg = DebugUtils.LogMsgS;
+	public function Mod(modInfo:Object, hostClip:MovieClip) {
+		Debug = DebugUtils.StaticInit(modInfo.Name || "Unnamed", DevName, DVPrefix, modInfo.Debug);
+		DebugUtils.SignalFatalError.Connect(OnFatalError, this);
 
 		FifoMsg = Delegate.create(this, _FifoMsg);
 		ChatMsg = Delegate.create(this, _ChatMsg);
@@ -115,7 +114,8 @@ class efd.Clockwatcher.lib.Mod {
 		if (modInfo.Subsystems.Config != undefined) { SystemsLoaded.Config = false; }
 		ModLoadedDV = DistributedValue.Create(ModLoadedVarName);
 		ModLoadedDV.SetValue(false);
-		ModEnabledDV = DistributedValue.Create(ModEnabledVarName); // null until config load, or load completes
+		ModEnabledDV = DistributedValue.Create(ModEnabledVarName);
+		ModEnabledDV.SetValue(undefined);
 		ModEnabledDV.SignalChanged.Connect(ModEnabledChanged, this);
 
 		ModListDV = DistributedValue.Create("emfListMods");
@@ -125,7 +125,7 @@ class efd.Clockwatcher.lib.Mod {
 		LocaleManager.SignalStringsLoaded.Connect(StringsLoaded, this);
 		LocaleManager.LoadStringFile("Strings");
 
-		HostClip = hostClip;
+		HostClip = hostClip; // Not needed for console style mods
 
 		ConfigHost = modInfo.Subsystems.Config.Init(this, modInfo.Subsystems.Config.InitObj);
 		// TODO: Some mods won't have to serialize this, because it only makes sense as an error disable
@@ -164,7 +164,7 @@ class efd.Clockwatcher.lib.Mod {
 		SignalLoadCompleted.Emit();
 		ModLoadedDV.SetValue(Version);
 		// No errors force disabled during load, assume things are working and fetch the serialized state (or true)
-		if (ModEnabledDV.GetValue() === null) { ModEnabledDV.SetValue(Config.GetValue("Enabled", true)); }
+		if (ModEnabledDV.GetValue() === undefined) { ModEnabledDV.SetValue(Config.GetValue("Enabled", true)); }
 	}
 
 	// The game itself toggles the mod's activation state (based on modules.xml criteria)
@@ -173,8 +173,8 @@ class efd.Clockwatcher.lib.Mod {
 		if (!state) {
 			// DEPRECATED(v1.0.0): Temporary upgrade support
 			if (Config.GetValue("TopbarIntegration") == undefined) { Config.SetValue("TopbarIntegration", false); }
+
 			ConfigHost.ConfigWindow.CloseWindow();
-			// NOTE: This is going to partially hide the circular reference problem
 			EnabledByGame = false;
 			CheckEnableState();
 			return Config.SaveConfig();
@@ -191,12 +191,13 @@ class efd.Clockwatcher.lib.Mod {
 		if (newValue && SystemsLoaded != undefined) {
 			Debug.ErrorMsg("Failed to load required components, and cannot be enabled");
 			for (var key:String in SystemsLoaded) {
-				if (!SystemsLoaded[key]) { Debug.ErrorMsg("Missing: " + key, { mlCont : true }); }
+				if (!SystemsLoaded[key]) { Debug.ErrorMsg("Missing: " + key, { noHeader : true }); }
 			}
 			dv.SetValue(false);
 		} else {
 			CheckEnableState();
 			Config.SetValue("Enabled", ModEnabledDV.GetValue());
+			// TODO: This is getting called twice when changing characters... why?
 			if (Icon == undefined) {
 				// No Icon, probably means it's a console style mod
 				// Provide alternate notification
@@ -207,10 +208,11 @@ class efd.Clockwatcher.lib.Mod {
 
 	private function CheckEnableState() {
 		var newState:Boolean = (Boolean)(EnabledByGame && ModEnabledDV.GetValue()); // Cast due to ModEnabledDV possibly null
-		if (newState != _Enabled) { // State changed
-			_Enabled = newState;
+		if (newState != Enabled) { // State changed
+			Enabled = newState;
 			if (newState) { Activate(); }
 			else { Deactivate(); }
+			Icon.Refresh();
 		}
 	}
 
@@ -220,9 +222,7 @@ class efd.Clockwatcher.lib.Mod {
 	public function OnUnload():Void {
 		ModLoadedDV.SetValue(false);
 		Icon.FreeID(); // TODO: Move this into Icon, probably by raising an event
-		// TODO: Clean up potential cyclical references
 		removeMovieClip(Icon);
-
 	}
 
 	// Each mod ends up getting two notifications, whichever mod is first gets a true+false, other mods get false+false
@@ -246,9 +246,7 @@ class efd.Clockwatcher.lib.Mod {
 
 	// Implementations
 	private function ToggleUserEnabled():Void { ModEnabledDV.SetValue(!ModEnabledDV.GetValue()); }
-	private function ToggleUserEnabledTooltip():String {
-		return LocaleManager.GetString("GUI", ModEnabledDV.GetValue() ? "TooltipModOff" : "TooltipModOn");
-	}
+	private function ToggleUserEnabledTooltip():String { return LocaleManager.GetString("GUI", ModEnabledDV.GetValue() ? "TooltipModOff" : "TooltipModOn"); }
 
 	private function ToggleInterfaceWindow():Void { InterfaceWindow.ToggleWindow(); }
 	private function ToggleInterfaceWindowTooltip():String { return LocaleManager.GetString("GUI", "TooltipShowInterface"); }
@@ -317,9 +315,6 @@ class efd.Clockwatcher.lib.Mod {
 	// Recommend wrapping the call in a local version, that inserts an identifer for the subcomponent involved
 	public static var FifoMsg:Function;
 	public static var ChatMsg:Function;
-	public static var ErrorMsg:Function;
-	public static var TraceMsg:Function;
-	public static var LogMsg:Function;
 
 /// Subclass Extension Stubs
 	public function InstallMod():Void { }
@@ -342,14 +337,10 @@ class efd.Clockwatcher.lib.Mod {
 	public function get ModEnabledVarName():String { return DVPrefix + ModName + "Enabled"; }
 	private var ModEnabledDV:DistributedValue; // Doesn't reflect game toggles, only the player or internal mod disabling
 	private var EnabledByGame:Boolean = false;
-	private var _Enabled:Boolean = false;
-	public function get Enabled():Boolean { return _Enabled; } // EnabledByGame && EnabledByPlayer (_Enabled is so that change notifications can be generated)
+	private var Enabled:Boolean = false; // PlayerEnabled && GameEnabled
 
 	private var ModListDV:DistributedValue;
 	private var VersionReported:Boolean = false;
-
-	// TODO: I suspect some of these ducktyped objects of holding cyclical references that cause problems on character/server swaps
-	//       Should sort them out. In the meantime will attempt to add some cleanup code above
 
 	public var ConfigHost:Object; // Ducktyped ConfigManager
 	public var Config:Object; // Ducktyped ConfigWrapper

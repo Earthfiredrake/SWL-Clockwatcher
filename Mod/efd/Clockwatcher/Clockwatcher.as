@@ -154,7 +154,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 
 	private function ApplyHook(content:MovieClip):Void {
 		if (!SanityCheck(content)) {
-			ErrorMsg("UI code has changed in a way that conflicts with this mod, modifications to the UI have been cancelled.");
+			Debug.ErrorMsg("UI code has changed in a way that conflicts with this mod, modifications to the UI have been cancelled.");
 			return;
 		}
 		content.m_RaidsHeader.text = LocaleManager.FormatString("Clockwatcher", "LockoutSectionTitle", content.m_RaidsHeader.text);
@@ -328,7 +328,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			}
 		}
 
-		if (eventTime == Number.POSITIVE_INFINITY) { TraceMsg("Next agent event time is infinite"); }
+		if (eventTime == Number.POSITIVE_INFINITY) { Debug.DevMsg("Next agent event time is infinite"); }
 		return eventTime;
 	}
 
