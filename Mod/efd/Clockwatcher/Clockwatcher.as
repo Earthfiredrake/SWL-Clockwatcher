@@ -120,7 +120,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		}
 		for (var s:String in lairs) {
 			// Using negative "MissionIDs" (actually zone IDs) to ensure that proxy missions for lairs are unique (zoneIDs have collisions with missionIDs)
-			outArchive.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone))].join('|'));
+			outArchive.AddEntry("MissionCD", [-(Number(s)), lairs[s], LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", Number(s)))].join('|'));
 		}
 
 		// Agent IDs do not conflict with mission IDs, so make use of their given range
@@ -226,7 +226,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		var allClear:Boolean = true;
 		var time:Number = Utils.GetServerSyncedTime();
 		for (var i:Number = 0; i < target.m_Lairs.length; ++i) {
-			allClear = allClear && target.m_Lairs[i].UpdateExpiry(time);
+			allClear = target.m_Lairs[i].UpdateExpiry(time) && allClear;
 		}
 		if (allClear) { target.ClearTimeInterval(); }
 	}
