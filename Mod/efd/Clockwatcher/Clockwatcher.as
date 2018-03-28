@@ -42,7 +42,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.2.1"
+		Version : "1.2.2"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -51,6 +51,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 
 		OfflineExportDV = DistributedValue.Create(DVPrefix + ModName + "OfflineExport");
 		OfflineExportDV.SignalChanged.Connect(ToggleOfflineData, this);
+		LoginAlertsDV = DistributedValue.Create(DVPrefix + ModName + "LoginAlerts");
 
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
@@ -64,12 +65,16 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	//   Decided to go with manual config instead of the framework version for now
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
 		if (state) {
-			OfflineExportDV.SetValue(DistributedValue.GetDValue(DVPrefix + ModName + "Global").FindEntry("OfflineExport", true));
+			var globalSettings:Archive = DistributedValue.GetDValue(DVPrefix + ModName + "Global");
+			OfflineExportDV.SetValue(globalSettings.FindEntry("OfflineExport", true));
+			LoginAlertsDV.SetValue(globalSettings.FindEntry("LoginAlerts", true));
 			GetOfflineAgentEvent(); // Ensuring that it's cached after a /reloadui so that it is serialized properly
 			AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateAgentEvents, this);
-			AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);
+			AgentSystem.SignalMissionCompleted.Connect(UpdateAgentEvents, this);
+			AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);			
 		} else {
 			AgentSystem.SignalActiveMissionsUpdated.Disconnect(UpdateAgentEvents, this);
+			AgentSystem.SignalMissionCompleted.Disconnect(UpdateAgentEvents, this);
 			AgentSystem.SignalAgentStatusUpdated.Disconnect(UpdateAgentEvents, this);
 			SerializeGlobal();
 			if (OfflineExportDV.GetValue()) { SerializeOfflineData(); }
@@ -82,6 +87,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private function SerializeGlobal():Void {
 		var archive:Archive = new Archive();
 		archive.AddEntry("OfflineExport", OfflineExportDV.GetValue());
+		archive.AddEntry("LoginAlerts",  LoginAlertsDV.GetValue());
 		for (var char:String in AgentEvents) {
 			archive.AddEntry("AgentEvent", char + "|" + AgentEvents[char].toString());
 		}
@@ -93,10 +99,12 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (dv.GetValue()) {
 			Quests.SignalMissionCompleted.Connect(SerializeOfflineData, this);
 			AgentSystem.SignalActiveMissionsUpdated.Connect(SerializeOfflineData, this);
+			AgentSystem.SignalMissionCompleted.Connect(SerializeOfflineData, this);
 			AgentSystem.SignalAgentStatusUpdated.Connect(SerializeOfflineData, this);
 		} else {
 			Quests.SignalMissionCompleted.Disconnect(SerializeOfflineData, this);
 			AgentSystem.SignalActiveMissionsUpdated.Disconnect(SerializeOfflineData, this);
+			AgentSystem.SignalMissionCompleted.Disconnect(SerializeOfflineData, this);
 			AgentSystem.SignalAgentStatusUpdated.Disconnect(SerializeOfflineData, this);
 		}
 	}
@@ -264,38 +272,46 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (CharacterListItemRenderer.prototype._UpdateVisuals == undefined) {
 			CharacterListItemRenderer.prototype._UpdateVisuals = CharacterListItemRenderer.prototype["UpdateVisuals"];
 			CharacterListItemRenderer.prototype["UpdateVisuals"] = function():Void {
-				// TODO: Something in here has been causing an infrequent crash when first starting up the game (for me only)
-				//       Currently testing whether it is helpful to defer the layout pass after requesting the image load
+				// TODO: Something in here has been causing an infrequent crash when first starting up the game
+				//       Currently testing if MovieClipLoader is any more stable than loadMovie
+				//       Has also rearranged things so that the clip is positioned before it loads
 				this._UpdateVisuals();
 				if (this.data == undefined || this.data.m_CreateCharacter) { return; }
 				var agentEventTime = Clockwatcher.GetOfflineAgentEvent(this.data.m_Id);
 				if (agentEventTime != undefined && agentEventTime <= Utils.GetServerSyncedTime()) {
 					var agentAlert:MovieClip = this.createEmptyMovieClip("AgentAlert", this.getNextHighestDepth());
-					agentAlert.loadMovie("Clockwatcher\\gfx\\AgentAlert.png");
-					setTimeout(Clockwatcher.InsertAgentAlert, 50, agentAlert, 10, this.m_Level._y + 19);
+					agentAlert._x = 9;
+					agentAlert._y = this.m_Level._y + 17;
+					agentAlert._visible = false;
+					var alertIcon:MovieClip = agentAlert.createEmptyMovieClip("Icon", agentAlert.getNextHighestDepth());
+					if (!this.Loader) {
+						this.Loader = new MovieClipLoader();
+						var listener:Object = new Object();
+						listener.onLoadInit = function(target:MovieClip):Void {
+							target._parent._visible = true;
+						};
+						this.Loader.addListener(listener);
+					}
+					this.Loader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", alertIcon);
 				}
 			};
 		}
-	}
-
-	private static function InsertAgentAlert(target:MovieClip, x:Number, y:Number):Void {
-		target._x = x;
-		target._y = y;
 	}
 
 	// If done onLoad the mod won't have access to the settings yet
 	// Waiting until onActivate requires it to finish logging in, which is no more useful
 	// Trying for a lazy load, it had better exist when I need it
 	public static function GetOfflineAgentEvent(charID:Number):Object {
+		var globalSettings:Archive = DistributedValue.GetDValue(DVPrefix + "ClockwatcherGlobal");
 		if (AgentEvents == undefined) {
 			AgentEvents = new Object();
-			var agentTimes:Array = DistributedValue.GetDValue(DVPrefix + "ClockwatcherGlobal").FindEntryArray("AgentEvent");
+			var agentTimes:Array = globalSettings.FindEntryArray("AgentEvent");
 			for (var i:Number = 0; i < agentTimes.length; ++i) {
 				var split:Array = agentTimes[i].split('|');
 				AgentEvents[split[0]] = Number(split[1]);
 			}
 		}
-		return AgentEvents[charID];
+		return globalSettings.FindEntry("LoginAlerts", true) ? AgentEvents[charID] : undefined;
 	}
 
 	private function UpdateAgentEvents():Void {
@@ -331,6 +347,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (eventTime == Number.POSITIVE_INFINITY) { Debug.DevMsg("Next agent event time is infinite"); }
 		return eventTime;
 	}
+	
+/// Queue pop alerts
+
+
 
 /// Variables
 	// TODO: These can be offloaded to a datafile
@@ -371,6 +391,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private static var AgentEvents:Object; // [charID] = eventTime map
 
 	private var OfflineExportDV:DistributedValue;
+	private var LoginAlertsDV:DistributedValue;
 }
 
 // Notes on ID ranges:

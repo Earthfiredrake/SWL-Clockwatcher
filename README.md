@@ -8,8 +8,9 @@ A collection of tools to help track mission and agent cooldowns. Used by itself 
 
 It also provides data support to the offline viewer program (exclusive to GitHub):
 + Offline tracking - Mission/lair cooldown timers and agent mission completion and recovery timers can be viewed from outside of the game (or while on an alt)
++ Audio alerts when an agent mission or recovery timer is completed
 
-Some general settings are saved per account. Offline mission lists are saved per character and can be disabled with `/setoption efdClockwatcherOfflineExport false` if you don't wish to use the viewer.
+Some general settings are saved per account. Offline mission lists are saved per character and can be disabled with `/setoption efdClockwatcherOfflineExport false` if you don't wish to use the viewer. Viewer settings are piggybacked onto the local app settings folder for SWL.
 
 ## Installation
 The packaged release should be unzipped (including the internal folder) into the listed folder:
@@ -21,13 +22,23 @@ The safest method for upgrading (required for installing) is to have the client 
 Clockwatcher.exe requires v4.6 of the .net framework to be installed which can be downloaded from Microsoft if needed. It will not have any content until the mod has had an opportunity to save some data.
 
 ## Usage Notes
-+ When the mod is first used, each character must be logged in once to cache data for either the offline or login displays.
++ When the mod is first used, each character must be logged in once to cache data for the offline viewer
+  + Character select agent alerts will be updated once an agent changes state (completes or starts a mission, or recovers from incapacitation)
 + Each lair's missions share a single entry in both the timer window and offline tracking tool, and the listed time is the longest of those missions' cooldowns
 + Clockwatcher.exe automatically does a minor refresh to update the time display, but will only load new data on manual refreshes. This merges new data with that already loaded, retaining any "Ready!" missions until the program exits
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two
   + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered.
 
 ## Change Log
+Version 1.2.2
++ Mod: Lair lockout list no longer confused after encountering the an active cooldown
++ Mod: Login agent alerts can now be disabled for stability (/setoption efdClockwatcherLoginAlerts false)
++ Mod/Viewer: Lairs now have the proper zone name attached
++ Viewer: Automatic refresh now more refreshing, loads changes to data without prompting, manual refresh has been retired
++ Viewer: "Clear Ready" now affects only the current character tab, refreshes no longer reload completed timers
++ Viewer: Audio and taskbar alerts when a timer runs out
++ Viewer: Now has a non-default icon
+
 Version 1.2.1
 + Mod: No longer converts lost connections into desktop visits (crash fix)
 + Mod/Viewer: Now exports recovery times for incapacitated agents
@@ -53,10 +64,12 @@ Version 1.0.0
 + Tool to view these cooldowns outside of the game
 
 ## Known Issues & Further Developments
-As this is new there may be some bugs in it. Please let me know if you run into them.
++ Can cause the game to crash at character selection, usually when the game is first started and then works fine afterwards
+  + Mitigation has been less than successful, but it can be disabled independently if it becomes an issue (/setoption efdClockwatcherLoginAlerts false)
 
 Possible future features:
-+ Possibly add incapacitated agents to the offline viewer
++ Alerts for queue pops (for when alt tabbed, not sure if I can detect the active application though)
++ Compact list of mission cooldowns as a secondary tab on the timer window, like days of yore
 + Lookup tables could make several features viable:
   + Extended mission info (zone and questgiver would be handy at the very least)
   + Mission pinning/favourites, selectively displaying missions even with no cooldown data
@@ -64,7 +77,6 @@ Possible future features:
   + Would require updates as new missions come out
     + There is a slightly complicated method of turning it into a self-learning system
 	+ May require a UAC prompt from the viewer to implement though
-+ Compact list of mission cooldowns as a secondary tab on the timer window, like days of yore
 
 As always, defect reports, suggestions, and contributions are welcome. Message Peloprata in #modding on the SWL discord, or in-game by mail or pm, or leave a message on CurseForge or GitHub.
 

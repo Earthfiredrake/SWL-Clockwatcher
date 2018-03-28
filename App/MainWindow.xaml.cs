@@ -4,8 +4,10 @@
 
 using System;
 using System.Globalization;
+using System.Media;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Shell;
 
 namespace Clockwatcher {
     /// <summary>
@@ -14,8 +16,25 @@ namespace Clockwatcher {
     public partial class MainWindow : Window {
         public MainWindow() {
             InitializeComponent();
-            DataContext = new Dataset();
+            var context = new Dataset();
+            context.RaiseAlert += Context_RaiseAlert;
+            DataContext = context;
         }
+
+        private void Context_RaiseAlert(object sender, EventArgs e) => Dispatcher.Invoke(EmitAlert);
+
+        private void EmitAlert() {
+            if (!IsActive || WindowState == WindowState.Minimized) {
+                if (AlertSound.IsEnabled) {
+                    AlertSound.Play();
+                }// else { SystemSounds.Exclamation.Play(); }
+                TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
+            }
+        }
+
+        private void ClearTaskbarAlert(object sender, EventArgs e) => TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+
+        private void ResetAlertSound(object sender, RoutedEventArgs e) => AlertSound.Stop();
     }
 
     [ValueConversion(typeof(TimeSpan), typeof(string))]
