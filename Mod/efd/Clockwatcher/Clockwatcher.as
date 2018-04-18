@@ -278,21 +278,12 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 				this._UpdateVisuals();
 				if (this.data == undefined || this.data.m_CreateCharacter) { return; }
 				var agentEventTime = Clockwatcher.GetOfflineAgentEvent(this.data.m_Id);
-				if (agentEventTime != undefined && agentEventTime <= Utils.GetServerSyncedTime()) {
+				if (agentEventTime != undefined && agentEventTime <= (new Date().getTime() / 1000)) { // Utils.GetServerSyncedTime()) {
 					var agentAlert:MovieClip = this.createEmptyMovieClip("AgentAlert", this.getNextHighestDepth());
 					agentAlert._x = 9;
 					agentAlert._y = this.m_Level._y + 17;
 					agentAlert._visible = false;
-					var alertIcon:MovieClip = agentAlert.createEmptyMovieClip("Icon", agentAlert.getNextHighestDepth());
-					if (!this.Loader) {
-						this.Loader = new MovieClipLoader();
-						var listener:Object = new Object();
-						listener.onLoadInit = function(target:MovieClip):Void {
-							target._parent._visible = true;
-						};
-						this.Loader.addListener(listener);
-					}
-					this.Loader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", alertIcon);
+					Clockwatcher.LoadIconInto(agentAlert);
 				}
 			};
 		}
@@ -312,6 +303,26 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			}
 		}
 		return globalSettings.FindEntry("LoginAlerts", true) ? AgentEvents[charID] : undefined;
+	}
+	
+	public static function LoadIconInto(target:MovieClip):Void {
+		var iconClip:MovieClip = target.createEmptyMovieClip("Icon", target.getNextHighestDepth());
+		if (!IconLoader) {
+			IconLoader = new MovieClipLoader();
+			var listener:Object = new Object();
+			listener.onLoadInit = function(target:MovieClip):Void {
+				target._parent._visible = true;
+				if (AdditionalClips.length == 0) {
+					delete IconLoader;
+					IconLoader = undefined;
+				} else { IconLoader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", AdditionalClips.pop()); }
+			};
+			IconLoader.addListener(listener);
+		} else {
+			DebugUtils.LogMsgS("Added sequential icon request.");
+			AdditionalClips.push(target);
+		}
+		IconLoader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", iconClip);
 	}
 
 	private function UpdateAgentEvents():Void {
@@ -389,6 +400,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private var LockoutsDV:DistributedValue;
 
 	private static var AgentEvents:Object; // [charID] = eventTime map
+	private static var IconLoader:MovieClipLoader;
+	private static var AdditionalClips:Array = new Array();
 
 	private var OfflineExportDV:DistributedValue;
 	private var LoginAlertsDV:DistributedValue;
