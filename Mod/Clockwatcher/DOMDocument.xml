@@ -1,10 +1,6 @@
 <DOMDocument xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" currentTimeline="1" xflVersion="2.1" creatorInfo="Adobe Flash Professional CS5.5" platform="Windows" versionInfo="Saved by Adobe Flash Windows 11.5 build 349" majorVersion="11" minorVersion="5" buildNumber="349" nextSceneIdentifier="3" playOptionsPlayLoop="false" playOptionsPlayPages="false" playOptionsPlayFrameActions="false">
-     <media>
-          <DOMBitmapItem name="AgentAlert.png" itemID="5ad7a06e-00000253" sourceExternalFilepath="./LIBRARY/AgentAlert.png" sourceLastImported="1522200266" externalFileSize="3395" useImportedJPEGData="false" compressionType="lossless" originalCompressionType="lossless" quality="50" href="AgentAlert.png" bitmapDataHRef="M 1 1524080678.dat" frameRight="480" frameBottom="480"/>
-     </media>
-     <symbols>
-          <Include href="CWAgentAlertIcon.xml" itemID="5ad7a059-00000252" lastModified="1524080743"/>
-     </symbols>
+     <media/>
+     <symbols/>
      <timelines>
           <DOMTimeline name="Scene 1">
                <layers>

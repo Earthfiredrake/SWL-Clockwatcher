@@ -19,18 +19,11 @@ import com.GameInterface.Utils;
 import com.Utils.Archive;
 import com.Utils.Colors;
 import com.Utils.LDBFormat;
-
-// Note: By including this, and because it does not remain pre-loaded at all times, this mod doesn't do perfect code injection
-//   Specifically, after a /reloadui, this mod's copy will be the one used to re-generate the prototype
-//   Unless this changes, maintainers should be careful to track this file in the API so that updates can be released in a timely manner
-import GUI.LoginCharacterSelection.CharacterListItemRenderer;
+import GUIFramework.SFClipLoader;
 
 import efd.Clockwatcher.lib.DebugUtils;
 import efd.Clockwatcher.lib.LocaleManager;
 import efd.Clockwatcher.lib.Mod;
-
-import efd.Clockwatcher.AgentNotification;
-import efd.Clockwatcher.lib.etu.MovieClipHelper;
 
 // TODO: Playfield names are slightly unwieldy for lair strings, consider revising
 
@@ -56,7 +49,9 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 
-		HookCharSelect();
+		if (_root.clockwatcherLoginAlerts == undefined) {
+			SFClipLoader.LoadClip("Clockwatcher/LoginAlerts.swf", "clockwatcherLoginAlerts", false, _global.Enums.ViewLayer.e_ViewLayerTop, 4);
+		}
 	}
 
 	// Despite my best guesses I'm not getting an enable call until I log in
@@ -71,7 +66,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			GetOfflineAgentEvent(); // Ensuring that it's cached after a /reloadui so that it is serialized properly
 			AgentSystem.SignalActiveMissionsUpdated.Connect(UpdateAgentEvents, this);
 			AgentSystem.SignalMissionCompleted.Connect(UpdateAgentEvents, this);
-			AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);			
+			AgentSystem.SignalAgentStatusUpdated.Connect(UpdateAgentEvents, this);
 		} else {
 			AgentSystem.SignalActiveMissionsUpdated.Disconnect(UpdateAgentEvents, this);
 			AgentSystem.SignalMissionCompleted.Disconnect(UpdateAgentEvents, this);
@@ -268,61 +263,23 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 /// Character select agent notifications
-	private function HookCharSelect():Void {
-		if (CharacterListItemRenderer.prototype._UpdateVisuals == undefined) {
-			CharacterListItemRenderer.prototype._UpdateVisuals = CharacterListItemRenderer.prototype["UpdateVisuals"];
-			CharacterListItemRenderer.prototype["UpdateVisuals"] = function():Void {
-				// TODO: Something in here has been causing an infrequent crash when first starting up the game
-				//       Currently testing if MovieClipLoader is any more stable than loadMovie
-				//       Has also rearranged things so that the clip is positioned before it loads
-				this._UpdateVisuals();
-				if (this.data == undefined || this.data.m_CreateCharacter) { return; }
-				var agentEventTime = Clockwatcher.GetOfflineAgentEvent(this.data.m_Id);
-				if (agentEventTime != undefined && agentEventTime <= (new Date().getTime() / 1000)) { // Utils.GetServerSyncedTime()) {
-					var agentAlert:MovieClip = this.createEmptyMovieClip("AgentAlert", this.getNextHighestDepth());
-					agentAlert._x = 9;
-					agentAlert._y = this.m_Level._y + 17;
-					agentAlert._visible = false;
-					Clockwatcher.LoadIconInto(agentAlert);
-				}
-			};
-		}
-	}
 
 	// If done onLoad the mod won't have access to the settings yet
-	// Waiting until onActivate requires it to finish logging in, which is no more useful
-	// Trying for a lazy load, it had better exist when I need it
-	public static function GetOfflineAgentEvent(charID:Number):Object {
+	//   Waiting until onActivate requires it to finish logging in, which is no more useful
+	//   Trying for a lazy load, it had better exist when I need it
+	// Loading into static/_global as the ClockWatcher instance is destroyed when logging out
+	//   Could load it into LoginAlerts, which might make sense, but then it would need update logic or cross serialization anyway
+	public static function GetOfflineAgentEvent(charID:Number):Number {
 		var globalSettings:Archive = DistributedValue.GetDValue(DVPrefix + "ClockwatcherGlobal");
-		if (AgentEvents == undefined) {
+		var agentTimes:Array = globalSettings.FindEntryArray("AgentEvent");
+		if (AgentEvents == undefined && agentTimes != undefined) {
 			AgentEvents = new Object();
-			var agentTimes:Array = globalSettings.FindEntryArray("AgentEvent");
 			for (var i:Number = 0; i < agentTimes.length; ++i) {
 				var split:Array = agentTimes[i].split('|');
 				AgentEvents[split[0]] = Number(split[1]);
 			}
 		}
 		return globalSettings.FindEntry("LoginAlerts", true) ? AgentEvents[charID] : undefined;
-	}
-	
-	public static function LoadIconInto(target:MovieClip):Void {
-		var iconClip:MovieClip = target.createEmptyMovieClip("Icon", target.getNextHighestDepth());
-		if (!IconLoader) {
-			IconLoader = new MovieClipLoader();
-			var listener:Object = new Object();
-			listener.onLoadInit = function(target:MovieClip):Void {
-				target._parent._visible = true;
-				if (AdditionalClips.length == 0) {
-					delete IconLoader;
-					IconLoader = undefined;
-				} else { IconLoader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", AdditionalClips.pop()); }
-			};
-			IconLoader.addListener(listener);
-		} else {
-			DebugUtils.LogMsgS("Added sequential icon request.");
-			AdditionalClips.push(target);
-		}
-		IconLoader.loadClip("Clockwatcher\\gfx\\AgentAlert.png", iconClip);
 	}
 
 	private function UpdateAgentEvents():Void {
@@ -358,7 +315,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (eventTime == Number.POSITIVE_INFINITY) { Debug.DevMsg("Next agent event time is infinite"); }
 		return eventTime;
 	}
-	
+
 /// Queue pop alerts
 
 
@@ -400,8 +357,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private var LockoutsDV:DistributedValue;
 
 	private static var AgentEvents:Object; // [charID] = eventTime map
-	private static var IconLoader:MovieClipLoader;
-	private static var AdditionalClips:Array = new Array();
+	//private static var IconLoader:MovieClipLoader;
+	//private static var AdditionalClips:Array = new Array();
 
 	private var OfflineExportDV:DistributedValue;
 	private var LoginAlertsDV:DistributedValue;
