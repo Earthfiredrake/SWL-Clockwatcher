@@ -12,6 +12,8 @@ import com.GameInterface.AgentSystemAgent;
 import com.GameInterface.AgentSystemMission;
 import com.GameInterface.DistributedValue;
 import com.GameInterface.Game.Character;
+import com.GameInterface.Game.TeamInterface;
+import com.GameInterface.GroupFinder;
 import com.GameInterface.Lore;
 import com.GameInterface.Quest;
 import com.GameInterface.Quests;
@@ -30,7 +32,6 @@ import efd.Clockwatcher.lib.Mod;
 class efd.Clockwatcher.Clockwatcher extends Mod {
 /// Initialization
 	// Leaving this one as classic, hardly anything in it
-	// Stateless mod, minimal subsystems
 	private static var ModInfo:Object = {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
@@ -42,21 +43,24 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		super(ModInfo, hostMovie);
 		InitLairMissions();
 
-		OfflineExportDV = DistributedValue.Create(DVPrefix + ModName + "OfflineExport");
-		OfflineExportDV.SignalChanged.Connect(ToggleOfflineData, this);
-		LoginAlertsDV = DistributedValue.Create(DVPrefix + ModName + "LoginAlerts");
-
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
 
+		OfflineExportDV = DistributedValue.Create(DVPrefix + ModName + "OfflineExport");
+		OfflineExportDV.SignalChanged.Connect(ToggleOfflineData, this);
+
+		LoginAlertsDV = DistributedValue.Create(DVPrefix + ModName + "LoginAlerts");
 		if (_root.clockwatcherLoginAlerts == undefined) {
 			SFClipLoader.LoadClip("Clockwatcher/LoginAlerts.swf", "clockwatcherLoginAlerts", false, _global.Enums.ViewLayer.e_ViewLayerTop, 4);
 		}
+		
+		GroupFinderPopDV = DistributedValue.Create("groupFinder_readyPrompt");
+		GroupFinderPopDV.SignalChanged.Connect(GroupPopAlert, this);
 	}
 
 	// Despite my best guesses I'm not getting an enable call until I log in
 	//   Advantage: I don't need to worry overly much about writing to a logged out character's settings
-	//   Disadvantage: Going to have to do all my hooking onLoad and fetch the config archive manually
+	//   Disadvantage: Going to have to do all my hooking onLoad and fetch the config archive manually when needed
 	//   Decided to go with manual config instead of the framework version for now
 	public function GameToggleModEnabled(state:Boolean, archive:Archive) {
 		if (state) {
@@ -148,11 +152,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 
 /// Timer window lair tracking
 	private function HookLockoutsWindow(dv:DistributedValue):Void {
-		if (dv.GetValue()) {
-			var content:MovieClip = _root.lockouttimers.m_Window.m_Content;
-			if (!content) { setTimeout(Delegate.create(this, HookLockoutsWindow), 40, dv); }
-			else { ApplyHook(content); }
-		}
+		if (!dv.GetValue()) { return; }
+		var content:MovieClip = _root.lockouttimers.m_Window.m_Content;
+		if (!content) { setTimeout(Delegate.create(this, HookLockoutsWindow), 40, dv); }
+		else { ApplyHook(content); }
 	}
 
 	private function ApplyHook(content:MovieClip):Void {
@@ -317,8 +320,21 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 /// Queue pop alerts
-
-
+	private function GroupPopAlert(dv:DistributedValue):Void {
+		if (!dv.GetValue()) { return; }
+		if (TeamInterface.GetClientTeamInfo()) {
+			Debug.DevMsg("Pre-Grouped");
+			return;
+		}
+		var popEvent = GroupFinder.GetActiveQueue();
+		if (popEvent >= _global.Enums.LFGQueues.e_ScenarioSoloElite1 &&
+			popEvent <= _global.Enums.LFGQueues.e_ScenarioSoloElite10) {
+			// Exclude solo queues, they'll always pop instantly
+			Debug.DevMsg("Solo Queue");
+			return;
+		}
+		Debug.LogMsg("Groupfinder queue popped");
+	}
 
 /// Variables
 	// TODO: These can be offloaded to a datafile
@@ -357,8 +373,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	private var LockoutsDV:DistributedValue;
 
 	private static var AgentEvents:Object; // [charID] = eventTime map
-	//private static var IconLoader:MovieClipLoader;
-	//private static var AdditionalClips:Array = new Array();
+	
+	private var GroupFinderPopDV:DistributedValue;
 
 	private var OfflineExportDV:DistributedValue;
 	private var LoginAlertsDV:DistributedValue;

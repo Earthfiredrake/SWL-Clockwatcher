@@ -21,14 +21,19 @@ namespace Clockwatcher {
             DataContext = context;
         }
 
-        private void Context_RaiseAlert(object sender, EventArgs e) => Dispatcher.Invoke(EmitAlert);
+        private void Context_RaiseAlert(object sender, AudioAlertEventArgs e) => Dispatcher.Invoke((Action<AudioAlertEventArgs>)EmitAlert, e);
 
-        private void EmitAlert() {
-            if (!IsActive || WindowState == WindowState.Minimized) {
-                if (AlertSound.IsEnabled) {
-                    AlertSound.Play();
-                }// else { SystemSounds.Exclamation.Play(); }
-                TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
+        private void EmitAlert(AudioAlertEventArgs e) {
+            switch (e.AlertType) {
+                case AudioAlertType.AgentAlert:
+                    if (!IsActive || WindowState == WindowState.Minimized) {
+                        if (AlertSound.IsEnabled) { AlertSound.Play(); }
+                        TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Paused;
+                    }
+                    break;
+                case AudioAlertType.GroupfinderAlert:
+                    SystemSounds.Exclamation.Play();
+                    break;
             }
         }
 

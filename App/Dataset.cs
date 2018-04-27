@@ -17,6 +17,7 @@ using System.Xml.Linq;
 namespace Clockwatcher {
     internal sealed class Dataset {
         internal Dataset() {
+            LogReader = new StreamReader(LogStream);
             TabPanels.Add(Settings);
 
             RefreshTimer.Elapsed += (sender, e) => Refresh();
@@ -27,6 +28,16 @@ namespace Clockwatcher {
         private void Refresh() {
             RefreshTimer.Enabled = false;
             try {
+                // Scan the logfile for alerts or other state messages
+                while (!LogReader.EndOfStream) {
+                    var line = LogReader.ReadLine();
+                    if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
+                        if (line.EndsWith("Groupfinder queue popped")) {
+                            RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.GroupfinderAlert));
+                        }
+                    }
+                }
+
                 // Load settings files
                 foreach (var charFile in FindCharacterFiles()) {
                     var charData = ExtractCharacterMissions(charFile);
@@ -48,7 +59,7 @@ namespace Clockwatcher {
                      from m in c.TimerList
                      where m.Refresh(Settings.AlertFilter)
                      select m).ToList().Any()) {
-                    RaiseAlert?.Invoke(this, EventArgs.Empty);
+                    RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.AgentAlert));
                 }
             } finally {
                 // Unhandled exceptions were causing the refresh timer to stop
@@ -105,16 +116,32 @@ namespace Clockwatcher {
         public IList<TabPanelData> TabPanels { get; } = new ObservableCollection<TabPanelData>();
         public ICommand RefreshCommand { get; }
 
-        public event EventHandler RaiseAlert;
+        public event EventHandler<AudioAlertEventArgs> RaiseAlert;
 
         private ICollection<CharacterTimers> CharacterMissionLists = new List<CharacterTimers>();
         private readonly Timer RefreshTimer = new Timer(5000);
+        private readonly Stream LogStream = new FileStream("G:\\Games\\Steam\\SteamApps\\Common\\Secret World Legends\\ClientLog.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            //new FileStream("..\\..\\..\\..\\..\\ClientLog.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        private readonly StreamReader LogReader;
 
         private static readonly string PrefsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
         private const string CharDirFilter = "Char*";
         private const string PrefsFileName = "Prefs_2.xml";
 
         private const string CWArchiveName = "efdClockwatcherMissionList";
+    }
+    
+    internal enum AudioAlertType {
+        AgentAlert,
+        GroupfinderAlert
+    }
+
+    internal sealed class AudioAlertEventArgs : EventArgs {
+        internal AudioAlertEventArgs(AudioAlertType alertType) {
+            AlertType = alertType;
+        }
+
+        public AudioAlertType AlertType { get; }
     }
 
     internal abstract class TabPanelData : INotifyPropertyChanged {
