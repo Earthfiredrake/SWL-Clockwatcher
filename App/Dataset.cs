@@ -9,63 +9,59 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Timers;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Xml.Linq;
 
 namespace Clockwatcher {
-    internal sealed class Dataset {
+    internal sealed class Dataset : INotifyPropertyChanged, IDisposable {
         internal Dataset() {
-            LogReader = new StreamReader(LogStream);
             TabPanels.Add(Settings);
-
-            RefreshTimer.Elapsed += (sender, e) => Refresh();
-
             Refresh();
         }
 
-        private void Refresh() {
-            RefreshTimer.Enabled = false;
-            try {
-                // Scan the logfile for alerts or other state messages
-                while (!LogReader.EndOfStream) {
-                    var line = LogReader.ReadLine();
-                    if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
-                        if (line.EndsWith("Groupfinder queue popped")) {
-                            RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.GroupfinderAlert));
-                        }
-                    }
-                }
-
-                // Load settings files
-                foreach (var charFile in FindCharacterFiles()) {
-                    var charData = ExtractCharacterMissions(charFile);
-                    if (charData != null) {
-                        var existing = (from e in CharacterMissionLists
-                                        where e.TabName == charData.TabName
-                                        select e).SingleOrDefault();
-                        if (existing != null) { // Merge with existing character record
-                            existing.Merge(charData.TimerList);
-                        } else { // Add new character
-                            CharacterMissionLists.Add(charData);
-                            TabPanels.Insert(TabPanels.Count - 1, charData);
-                        }
-                    }
-                }
-
-                // Update time displays and trigger alert states
-                if ((from c in CharacterMissionLists
-                     from m in c.TimerList
-                     where m.Refresh(Settings.AlertFilter)
-                     select m).ToList().Any()) {
-                    RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.AgentAlert));
-                }
-            } finally {
-                // Unhandled exceptions were causing the refresh timer to stop
-                // A bit of an issue now that there's no way to restart it
-                RefreshTimer.Enabled = true;
+        internal void Refresh() {
+            // Basic re-entrancy guard
+            if (Refreshing) {
+                // Warning: refresh took longer than 5s. Will skip cycles.
+                return;
             }
+            Refreshing = true;
+            // Scan the logfile for alerts or other state messages
+            while (!LogReader.EndOfStream) {
+                var line = LogReader.ReadLine();
+                if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
+                    if (line.EndsWith("Groupfinder queue popped")) {
+                        RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.GroupfinderAlert));
+                    }
+                }
+            }
+
+            // Load settings files
+            foreach (var charFile in FindCharacterFiles()) {
+                var charData = ExtractCharacterMissions(charFile, out var charName);
+                if (charData != null) {
+                    var existing = (from e in CharacterMissionLists
+                                    where e.TabName == charName
+                                    select e).SingleOrDefault();
+                    if (existing != null) { // Merge with existing character record
+                        existing.Merge(charData);
+                    } else { // Add new character
+                        var charPanel = new CharacterTimers(charName, charData);
+                        CharacterMissionLists.Add(charPanel);
+                        TabPanels.Insert(TabPanels.Count - 1, charPanel);
+                    }
+                }
+            }
+
+            // Update time displays and trigger alert states
+            if ((from c in CharacterMissionLists
+                 from m in c.TimerList
+                 where m.Refresh(Settings.AlertFilter)
+                 select m).ToList().Any()) {
+                RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.AgentAlert));
+            }
+            Refreshing = false;
         }
 
         private IEnumerable<string> FindCharacterFiles() {
@@ -74,7 +70,7 @@ namespace Clockwatcher {
                    select Path.Combine(character, PrefsFileName);
         }
 
-        private CharacterTimers ExtractCharacterMissions(string settingsFilePath) {
+        private IEnumerable<TimerEntry> ExtractCharacterMissions(string settingsFilePath, out string charName) {
             Debug.Assert(File.Exists(settingsFilePath));
             try {
                 using (Stream file = new FileStream(settingsFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
@@ -83,9 +79,9 @@ namespace Clockwatcher {
                                        select e).SingleOrDefault();
                     // Mod not in use on this character (no mod archive), no tab required
                     // Characters who only lack mission entries, are listed to show they have no cooldowns active
-                    if (trackerData == null) { return null; }
+                    if (trackerData == null) { charName = null;  return null; }
                     // Character name should be in saved data, otherwise use the Char# folder name which isn't so informative
-                    var charName = (from e in trackerData.Elements("String")
+                    charName = (from e in trackerData.Elements("String")
                                     where e.Attribute("name").Value == "CharName"
                                     select e).SingleOrDefault()?.Attribute("value").Value?.Trim('"')
                                     ?? Directory.GetParent(settingsFilePath).Name;
@@ -94,10 +90,11 @@ namespace Clockwatcher {
                                    select new MissionTimer((e.Attribute("value").Value).Trim('"'));
                     var agents = from e in EnumerateArchiveEntry(trackerData, "AgentCD")
                                  select new AgentTimer((e.Attribute("value").Value).Trim('"'));
-                    return new CharacterTimers(charName, Enumerable.Empty<TimerEntry>().Concat(missions).Concat(agents));
+                    return Enumerable.Empty<TimerEntry>().Concat(missions).Concat(agents);
                 }
             } catch (IOException) {
                 // File in use or other issue... either way no data from this one, so skip it
+                charName = null;
                 return null;
             }
         }
@@ -112,25 +109,39 @@ namespace Clockwatcher {
                         select e);
         }
 
+        public void Dispose() {
+            Dispose(true);
+        }
+
+        private void Dispose(bool disposing) {
+            if (!disposed) {
+                if (disposing) {
+                    LogReader.Dispose();
+                }
+                disposed = true;
+            }
+        }
+
         public ConfigPanel Settings { get; } = new ConfigPanel();
-        public IList<TabPanelData> TabPanels { get; } = new ObservableCollection<TabPanelData>();
-        public ICommand RefreshCommand { get; }
+        public ObservableCollection<TabPanelData> TabPanels { get; } = new ObservableCollection<TabPanelData>();
 
         public event EventHandler<AudioAlertEventArgs> RaiseAlert;
+        public event PropertyChangedEventHandler PropertyChanged; // Unused, fulfils implementation requirements for WPF
 
+
+        private bool Refreshing = false;
+        // TODO: Permit custom specification of this folder location for if somebody wants to move the app
+        private readonly StreamReader LogReader = new StreamReader(new FileStream(Path.Combine("..", "..", "..", "..", "..", "ClientLog.txt"), FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite));
         private ICollection<CharacterTimers> CharacterMissionLists = new List<CharacterTimers>();
-        private readonly Timer RefreshTimer = new Timer(5000);
-        private readonly Stream LogStream = new FileStream("G:\\Games\\Steam\\SteamApps\\Common\\Secret World Legends\\ClientLog.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            //new FileStream("..\\..\\..\\..\\..\\ClientLog.txt", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        private readonly StreamReader LogReader;
 
         private static readonly string PrefsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
         private const string CharDirFilter = "Char*";
         private const string PrefsFileName = "Prefs_2.xml";
-
         private const string CWArchiveName = "efdClockwatcherMissionList";
+
+        private bool disposed = false;
     }
-    
+
     internal enum AudioAlertType {
         AgentAlert,
         GroupfinderAlert
@@ -163,17 +174,41 @@ namespace Clockwatcher {
         private void LoadConfig() {
             var settingsFile = Path.Combine(SettingsDir, SettingsFile);
             if (File.Exists(settingsFile)) {
-                using (var stream = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
+                using (var stream = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.Read)) {
                     var settings = XElement.Load(stream);
-                    EnableAudioAlerts = Boolean.Parse(settings.Element("AgentAudioAlert").Attribute("Enabled").Value);
+                    if (Boolean.TryParse(GetSetting(settings, "AgentAudioAlert", "Enabled"), out var b)) {
+                        _AgentAlertEnabled = b;
+                    }
+                    var alertFile = GetSetting(settings, "AgentAudioAlert", "FileName");
+                    if (alertFile != null) {
+                        _AgentAlertFile = alertFile;
+                    }
+                    if (Boolean.TryParse(GetSetting(settings, "GFPopAudioAlert", "Enabled"), out b)) {
+                        _GFPopAlertEnabled = b;
+                    }
+                    alertFile = GetSetting(settings, "GFPopAudioAlert", "FileName");
+                    if (alertFile != null) {
+                        _GFPopAlertFile = alertFile;
+                    }
                 }
+            } else {
+                SaveConfig(); // File doesn't exist: save the defaults
             }
+        }
+
+        private string GetSetting(XElement settings, string group, string key) {
+            return settings.Element(group)?.Attribute(key)?.Value;
         }
 
         private void SaveConfig() {
             var settings = new XElement("Settings",
                 new XElement("AgentAudioAlert",
-                    new XAttribute("Enabled", EnableAudioAlerts)
+                    new XAttribute("Enabled", EnableAgentAudioAlert),
+                    new XAttribute("FileName", _AgentAlertFile)
+                ),
+                new XElement("GFPopAudioAlert",
+                    new XAttribute("Enabled", EnableGFPopAudioAlert),
+                    new XAttribute("FileName", _GFPopAlertFile)
                 ));
             Directory.CreateDirectory(SettingsDir);
             settings.Save(Path.Combine(SettingsDir, SettingsFile));
@@ -184,22 +219,37 @@ namespace Clockwatcher {
             SaveConfig();
         }
 
-        public bool EnableAudioAlerts {
-            get { return _EnableAudioAlerts; }
+        public bool EnableAgentAudioAlert {
+            get { return _AgentAlertEnabled; }
             set {
-                if (value != _EnableAudioAlerts) {
-                    _EnableAudioAlerts = value;
-                    RaisePropertyChanged(nameof(EnableAudioAlerts));
+                if (value != _AgentAlertEnabled) {
+                    _AgentAlertEnabled = value;
+                    RaisePropertyChanged(nameof(EnableAgentAudioAlert));
                 }
             }
         }
-        public string AlertSoundFileName { get; } = "sfx\\AgentAlert.wav";
+        public string AgentAlertFile => Path.Combine(Directory.GetCurrentDirectory(), "sfx", _AgentAlertFile);
+
+        public bool EnableGFPopAudioAlert {
+            get { return _GFPopAlertEnabled; }
+            set {
+                if (value != _GFPopAlertEnabled) {
+                    _GFPopAlertEnabled = value;
+                    RaisePropertyChanged(nameof(EnableGFPopAudioAlert));
+                }
+            }
+        }
+        public string GFPopAlertFile => Path.Combine(Directory.GetCurrentDirectory(), "sfx", _GFPopAlertFile);
 
         internal TimerClass AlertFilter { get; } = TimerClass.Agent;
 
-        private bool _EnableAudioAlerts = true;
         private string SettingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Mods", "Clockwatcher");
         private string SettingsFile = "ViewerSettings.xml";
+
+        private bool _AgentAlertEnabled = true;
+        private string _AgentAlertFile = "AgentAlert.wav";
+        private bool _GFPopAlertEnabled = true;
+        private string _GFPopAlertFile = "GFPopAlert.wav";
     }
 
     // Nested data
@@ -238,7 +288,7 @@ namespace Clockwatcher {
         }
 
         public ICommand ClearReadyCommand { get; }
-        public ICollection<TimerEntry> TimerList { get; } = new ObservableCollection<TimerEntry>();
+        public ObservableCollection<TimerEntry> TimerList { get; } = new ObservableCollection<TimerEntry>();
     }
 
     [Flags]
@@ -261,6 +311,7 @@ namespace Clockwatcher {
         }
 
         internal bool Refresh(TimerClass alertFilter) {
+            if (IsReady && AlertDone) { return false; } // No need to update or trigger alerts
             RaisePropertyChanged(nameof(RemainingTime));
             return IsReady != AlertDone ? (AlertDone = IsReady) && ((alertFilter & Class) != TimerClass.None) : false;
         }
@@ -281,7 +332,7 @@ namespace Clockwatcher {
         private bool AlertDone = false;
     }
 
-    internal sealed class AgentTimer : TimerEntry, INotifyPropertyChanged {
+    internal sealed class AgentTimer : TimerEntry {
         internal AgentTimer(string agentInfo) : base(agentInfo) {
             IsRecovering = Boolean.Parse(agentInfo.Split('|')[3]);
         }
