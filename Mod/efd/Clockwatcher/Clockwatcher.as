@@ -36,7 +36,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.2.2"
+		Version : "1.3.0"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -186,7 +186,6 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	private static function SanityCheck(content:MovieClip):Boolean {
-		//if (content._height != 300) { return false; } // Bad test, people might have scaled the window
 		if (content.m_RaidsHeader == undefined) { return false; }
 		if (content.m_EliteRaid == undefined) { return false; }
 		if (content.m_Lairs != undefined) { return false; }
@@ -291,31 +290,31 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	}
 
 	// Returns the lowest of: Completion times for active missions and recovery times for agents (to fill an open mission slot)
-	// Undefined if there are no agents
+	// Undefined if there are no unlocked agents
 	// Assumes that it is impossible to totally drain the mission pool
 	private function NextAgentEventTime():Number {
 		var unlockedSlots:Number = Lore.IsLocked(10638) ? 1 : 2;
 		unlockedSlots += Character.GetClientCharacter().IsMember() ? 1 : 0;
 		var activeMissions:Array = AgentSystem.GetActiveMissions();
 		var agents:Array = AgentSystem.GetAgents();
-		if (!agents.length) { return undefined; }
 
 		var eventTime:Number = Number.POSITIVE_INFINITY;
 		for (var i:Number = 0; i < activeMissions.length; ++i) {
 			eventTime = Math.min(eventTime, AgentSystem.GetMissionCompleteTime(activeMissions[i].m_MissionId));
 		}
 
+		// TODO: Option to only notify on pending reports
 		// Open mission slot, see if there's any agents able to fill it, or if one will recover from fatigue before a mission ends
 		if (activeMissions.length < unlockedSlots) {
 			for (var i:Number = 0; i < agents.length; ++i) {
 				var agentID:Number = agents[i].m_AgentId;
-				if (!AgentSystem.HasAgent(agentID) || AgentSystem.IsAgentOnMission(agentID)) { continue; } // Mission timess are already accounted for
+				if (!AgentSystem.HasAgent(agentID) || AgentSystem.IsAgentOnMission(agentID)) { continue; } // Mission times are already accounted for
 				if (AgentSystem.IsAgentFatigued(agentID)) { eventTime = Math.min(eventTime, AgentSystem.GetAgentRecoverTime(agentID)); }
-				else { return 0; } // Agent and open mission available
+				else { return 0; } // Agent and open slot available
 			}
 		}
 
-		if (eventTime == Number.POSITIVE_INFINITY) { Debug.DevMsg("Next agent event time is infinite"); }
+		if (eventTime == Number.POSITIVE_INFINITY) { return undefined; }
 		return eventTime;
 	}
 
@@ -330,10 +329,9 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (popEvent >= _global.Enums.LFGQueues.e_ScenarioSoloElite1 &&
 			popEvent <= _global.Enums.LFGQueues.e_ScenarioSoloElite10) {
 			// Exclude solo queues, they'll always pop instantly
-			Debug.DevMsg("Solo Queue");
 			return;
 		}
-		Debug.LogMsg("Groupfinder queue popped");
+		Debug.LogMsg("Groupfinder queue popped"); // Message text is used by app as trigger
 	}
 
 /// Variables

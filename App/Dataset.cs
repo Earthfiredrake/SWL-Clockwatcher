@@ -128,7 +128,6 @@ namespace Clockwatcher {
         public event EventHandler<AudioAlertEventArgs> RaiseAlert;
         public event PropertyChangedEventHandler PropertyChanged; // Unused, fulfils implementation requirements for WPF
 
-
         private bool Refreshing = false;
         // TODO: Permit custom specification of this folder location for if somebody wants to move the app
         private readonly StreamReader LogReader = new StreamReader(new FileStream(Path.Combine("..", "..", "..", "..", "..", "ClientLog.txt"), FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite));

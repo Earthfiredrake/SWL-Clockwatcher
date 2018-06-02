@@ -9,6 +9,7 @@ A collection of tools to help track mission and agent cooldowns. Used by itself 
 It also provides data support to the offline viewer program (exclusive to GitHub):
 + Offline tracking - Mission/lair cooldown timers and agent mission completion and recovery timers can be viewed from outside of the game (or while on an alt)
 + Audio alerts when an agent mission or recovery timer is completed
++ Audio alerts when groupfinder queues pop
 
 Some general settings are saved per account. Offline mission lists are saved per character and can be disabled with `/setoption efdClockwatcherOfflineExport false` if you don't wish to use the viewer. Viewer settings are piggybacked onto the local app settings folder for SWL.
 
@@ -25,11 +26,25 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 + When the mod is first used, each character must be logged in once to cache data for the offline viewer
   + Character select agent alerts will be updated once an agent changes state (completes or starts a mission, or recovers from incapacitation)
 + Each lair's missions share a single entry in both the timer window and offline tracking tool, and the listed time is the longest of those missions' cooldowns
-+ Clockwatcher.exe automatically does a minor refresh to update the time display, but will only load new data on manual refreshes. This merges new data with that already loaded, retaining any "Ready!" missions until the program exits
++ Clockwatcher.exe automatically refreshes every five seconds, merging new data with that already loaded and retaining any "Ready!" missions until manually cleared
++  Game state changes should force serialization, 
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two
   + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered.
++ Queue alerts:
+  + Are not triggered for solo scens, or if queueing as a group.
+  + Use the same refresh cycle as the rest of the viewer, so may be delayed by up to five seconds.
+  + Will fail if no other game event has been logged since the previous pop.
 
 ## Change Log
+Version 1.3.0
++ Mod: Alternate login screen system hopefully fixes the login crashes (if it starts crashing on startup, let me know)
+  + Does not reset the setting that disables this, so you'll need to do that yourself
++ Mod: Support for new viewer features
++ Viewer: Groupfinder pop alerts
++ Viewer: Tracked down and fixed some unbounded memory usage, memory footprint should be much more level now
++ Viewer: Alternate agent alert sounds have been added into the base download
+  + Can be found in the `sfx/alt` subdirectory, and used by copying and renaming over the existing `sfx/AgentAlert.wav` file
+
 Version 1.2.2
 + Mod: Lair lockout list no longer confused after encountering the an active cooldown
 + Mod: Login agent alerts can now be disabled for stability (/setoption efdClockwatcherLoginAlerts false)
@@ -68,7 +83,6 @@ Version 1.0.0
   + Mitigation has been less than successful, but it can be disabled independently if it becomes an issue (/setoption efdClockwatcherLoginAlerts false)
 
 Possible future features:
-+ Alerts for queue pops (for when alt tabbed, not sure if I can detect the active application though)
 + Compact list of mission cooldowns as a secondary tab on the timer window, like days of yore
 + Lookup tables could make several features viable:
   + Extended mission info (zone and questgiver would be handy at the very least)
@@ -78,7 +92,9 @@ Possible future features:
     + There is a slightly complicated method of turning it into a self-learning system
 	+ May require a UAC prompt from the viewer to implement though
 
-As always, defect reports, suggestions, and contributions are welcome. Message Peloprata in #modding on the SWL discord, or in-game by mail or pm, or leave a message on CurseForge or GitHub.
+As always, defect reports, suggestions, and contributions are welcome. The official forum post is great, but I also keep track of the CurseForge and GitHub comments, or find me on the SWL discord or via in-game mail @Peloprata.
+
+Forum Topic: https://forums.funcom.com/t/clockwatcher-agent-and-mission-alerts/1600
 
 Source Repository: https://github.com/Earthfiredrake/SWL-Clockwatcher
 
@@ -102,6 +118,10 @@ Used under the terms of the Funcom UI License<br/>
 
 TabContent.cs behaviour copyright (c) Ivan Krivyakov <br/>
 Used under the terms of the Apache License 2.0
+
+Alternate audio alerts provided by:
++ Jakfass (vocal version)
++ Mikail (game audio version)
 
 Curseforge icon adapted from CC licensed artwork: <br/>
 https://www.flickr.com/photos/double-m2/3938357377 <br/>
