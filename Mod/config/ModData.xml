@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ClockwatcherData>
+	<Lairs>
+		<!-- Ordered by storyline placement of playfield to set lockout window order -->
+		<!-- Fortunately data is loaded in deterministic order, even if not required by spec -->
+		<Zone id="3030">
+			<Mission id="3434" />
+			<Mission id="3445" />
+			<Mission id="3422" />
+		</Zone>
+		<Zone id="3040">
+			<Mission id="3446" />
+			<Mission id="3436" />
+			<Mission id="3423" />
+		</Zone>
+		<Zone id="3050">
+			<Mission id="3447" />
+			<Mission id="3424" />
+			<Mission id="3439" />
+		</Zone>
+		<Zone id="3090">
+			<Mission id="3448" />
+			<Mission id="3426" />
+			<Mission id="3428" />
+		</Zone>
+		<Zone id="3100">
+			<Mission id="3449" />
+			<Mission id="3425" />
+			<Mission id="3429" />
+		</Zone>
+		<Zone id="3120">
+			<Mission id="3413" />
+			<Mission id="3412" />
+			<Mission id="3411" />
+		</Zone>
+		<Zone id="3130">
+			<Mission id="3415" />
+			<Mission id="3416" />
+			<Mission id="3421" />
+		</Zone>
+		<Zone id="3140">
+			<Mission id="3418" />
+			<Mission id="3419" />
+			<Mission id="3414" />
+		</Zone>
+		<Zone id="3070">
+			<Mission id="4056" />
+			<Mission id="4054" />
+			<Mission id="4064" />
+		</Zone>
+	</Lairs>
+</ClockwatcherData>

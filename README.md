@@ -31,11 +31,13 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two
   + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered.
 + Queue alerts:
-  + Are not triggered for solo scens, or if queueing as a group.
-  + Use the same refresh cycle as the rest of the viewer, so may be delayed by up to five seconds.
-  + Will fail if no other game event has been logged since the previous pop.
+  + Are not triggered for solo scens, or if queueing as a group
+  + Use the same refresh cycle as the rest of the viewer, so may be delayed by up to five seconds
 
 ## Change Log
+Version Next
++ Sequential groupfinder pops should now be better at triggering audio alerts
+
 Version 1.3.0
 + Mod: Alternate login screen system hopefully fixes the login crashes (if it starts crashing on startup, let me know)
   + Does not reset the setting that disables this, so you'll need to do that yourself
@@ -46,7 +48,7 @@ Version 1.3.0
   + Can be found in the `sfx/alt` subdirectory, and used by copying and renaming over the existing `sfx/AgentAlert.wav` file
 
 Version 1.2.2
-+ Mod: Lair lockout list no longer confused after encountering the an active cooldown
++ Mod: Lair lockout list no longer confused after encountering an active cooldown
 + Mod: Login agent alerts can now be disabled for stability (/setoption efdClockwatcherLoginAlerts false)
 + Mod/Viewer: Lairs now have the proper zone name attached
 + Viewer: Automatic refresh now more refreshing, loads changes to data without prompting, manual refresh has been retired

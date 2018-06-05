@@ -36,12 +36,13 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.3.0"
+		Version : "1.3.1"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
 		super(ModInfo, hostMovie);
-		InitLairMissions();
+		SystemsLoaded.Data = false;
+		DataFile = LoadXmlAsynch("ModData", Delegate.create(this, ParseModData));
 
 		LockoutsDV = DistributedValue.Create("lockoutTimers_window");
 		LockoutsDV.SignalChanged.Connect(HookLockoutsWindow, this);
@@ -53,7 +54,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		if (_root.clockwatcherLoginAlerts == undefined) {
 			SFClipLoader.LoadClip("Clockwatcher/LoginAlerts.swf", "clockwatcherLoginAlerts", false, _global.Enums.ViewLayer.e_ViewLayerTop, 4);
 		}
-		
+
 		GroupFinderPopDV = DistributedValue.Create("groupFinder_readyPrompt");
 		GroupFinderPopDV.SignalChanged.Connect(GroupPopAlert, this);
 	}
@@ -332,46 +333,66 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 			return;
 		}
 		Debug.LogMsg("Groupfinder queue popped"); // Message text is used by app as trigger
+		Debug.LogMsg("Alert triggered"); // Prevent "previous message was logged x times" from obstructing further pop alerts
+	}
+
+/// Data file parser
+	private function ParseModData(success:Boolean):Void {
+		if (!success) {
+			Debug.ErrorMsg("Failed to open data file", { fatal : true });
+			return;
+		}
+		var xmlRoot:XMLNode = DataFile.firstChild;
+		if (xmlRoot.nodeName != "ClockwatcherData") {
+			Debug.ErrorMsg("Unknown data format: Expects root <ClockwatcherData>", { fatal : true });
+			return;
+		}
+		var children:Array = xmlRoot.childNodes;
+		for (var i:Number = 0; i < children.length; ++i) {
+			switch (children[i].nodeName) {
+				case "Lairs": {
+					ParseLairData(children[i]);
+					break;
+				}
+				default: {
+					Debug.DevMsg("Unexpected entry in datafile");
+					break;
+				}
+			}
+		}
+		delete DataFile;
+		UpdateLoadProgress("Data");
+	}
+
+	private static function ParseLairData(root:XMLNode):Void {
+		if (LairZones.length > 0) { return; } // Static values already initialized
+		var zones:Array = root.childNodes;
+		for (var i:Number = 0; i < zones.length; ++i) {
+			if (zones[i].nodeName != "Zone") {
+				DebugUtils.DevMsgS("Unexpected lair entry in datafile");
+				continue;
+			}
+			var zoneID:Number = Number(zones[i].attributes.id);
+			LairZones.push(zoneID);
+			var missions:Array = zones[i].childNodes;
+			for (var j:Number = 0; j < missions.length; ++j) {
+				if (missions[j].nodeName != "Mission") {
+					DebugUtils.DevMsgS("Unexpected lair entry in datafile");
+					continue;
+				}
+				LairMissions[missions[j].attributes.id] = zoneID;
+			}
+		}
 	}
 
 /// Variables
-	// TODO: These can be offloaded to a datafile
-	private static function InitLairMissions():Void {
-		LairMissions["3434"] = 3030;
-		LairMissions["3445"] = 3030;
-		LairMissions["3422"] = 3030;
-		LairMissions["3446"] = 3040;
-		LairMissions["3436"] = 3040;
-		LairMissions["3423"] = 3040;
-		LairMissions["3447"] = 3050;
-		LairMissions["3424"] = 3050;
-		LairMissions["3439"] = 3050;
-		LairMissions["3448"] = 3090;
-		LairMissions["3426"] = 3090;
-		LairMissions["3428"] = 3090;
-		LairMissions["3449"] = 3100;
-		LairMissions["3425"] = 3100;
-		LairMissions["3429"] = 3100;
-		LairMissions["3413"] = 3120;
-		LairMissions["3412"] = 3120;
-		LairMissions["3411"] = 3120;
-		LairMissions["3415"] = 3130;
-		LairMissions["3416"] = 3130;
-		LairMissions["3421"] = 3130;
-		LairMissions["3418"] = 3140;
-		LairMissions["3419"] = 3140;
-		LairMissions["3414"] = 3140;
-		LairMissions["4056"] = 3070;
-		LairMissions["4054"] = 3070;
-		LairMissions["4064"] = 3070;
-	}
-
-	private static var LairZones:Array = [3030, 3040, 3050, 3090, 3100, 3120, 3130, 3140, 3070];
+	private var DataFile:XML;
+	private static var LairZones:Array = new Array();
 	private static var LairMissions:Object = new Object();
 	private var LockoutsDV:DistributedValue;
 
 	private static var AgentEvents:Object; // [charID] = eventTime map
-	
+
 	private var GroupFinderPopDV:DistributedValue;
 
 	private var OfflineExportDV:DistributedValue;
