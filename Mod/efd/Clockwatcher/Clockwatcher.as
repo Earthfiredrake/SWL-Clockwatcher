@@ -117,6 +117,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		var cdQuests:Array = Quests.GetAllQuestsOnCooldown(); // Uncertain if no-repeat quests can end up in this list
 		for (var i:Number = 0; i < cdQuests.length; ++i) {
 			var q:Quest = cdQuests[i];
+			if (q.m_ID < 1000) { Debug.DevMsg("Quest: " + q.m_MissionName + "(ID: " + q.m_ID + ") may conflict with agent ID range"); }
 			if (LairMissions[q.m_ID]) {
 				lairs[LairMissions[q.m_ID]] = lairs[LairMissions[q.m_ID]] ?
 					Math.max(lairs[LairMissions[q.m_ID]], q.m_CooldownExpireTime) :
@@ -132,7 +133,8 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		}
 
 		// Agent IDs do not conflict with mission IDs, so make use of their given range
-		// Since being on a mission and incapaciteted are exclusive possibilities, there should be no issue with sharing the same (unique/agent) ID range
+		//   (dev warnings are issued if an ID is found to be in potentially overlapping range)
+		// Since being on a mission and incapped are exclusive possibilities, there should be no issue with sharing the same (unique/agent) IDs
 		// Agent Missions
 		var agentMissions:Array = AgentSystem.GetActiveMissions();
 		for (var i:Number = 0; i < agentMissions.length; ++i) {
@@ -145,6 +147,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		for (var i:Number = 0; i < agents.length; ++i) {
 			var agent:AgentSystemAgent = agents[i];
 			var aID:Number = agent.m_AgentId;
+			if (aID <= 1000) { Debug.DevMsg("Agent: " + agent.m_Name + "(ID: " + aID + ") may conflict with quest ID range"); }
 			if (AgentSystem.IsAgentFatigued(aID)) { outArchive.AddEntry("AgentCD", [aID, AgentSystem.GetAgentRecoverTime(aID), agent.m_Name, true].join('|')); }
 		}
 
@@ -402,5 +405,5 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 // Notes on ID ranges:
 //   - Playzone IDs: In general range from 1000-8000 but will probably expand
 //                   Open world zones (with lairs) currently fit into the 3000-3200 range (with some space for expansion)
-//   - Agent IDs: Range from 100-300
-//   - Mission IDs: Range from 2000 - 5000, known collisions on relevant playzone IDs
+//   - Agent IDs: Range from 100-300 (Dev alert if 1K+)
+//   - Mission IDs: Range from 2000 - 5000, known collisions on relevant playzone IDs (Dev alert if < 1K)
