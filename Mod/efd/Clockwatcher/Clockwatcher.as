@@ -297,7 +297,10 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 	// Undefined if there are no unlocked agents
 	// Assumes that it is impossible to totally drain the mission pool
 	private function NextAgentEventTime():Number {
-		var unlockedSlots:Number = Lore.IsLocked(10638) ? 1 : 2;
+		var unlockedSlots:Number = 1;
+		unlockedSlots += Lore.IsLocked(_global.GUI.AgentSystem.CurrentMissionList.UNLOCK_SLOT_2) ? 0 : 1;
+		unlockedSlots += Lore.IsLocked(_global.GUI.AgentSystem.CurrentMissionList.UNLOCK_SLOT_3) ? 0 : 1;
+		unlockedSlots += Lore.IsLocked(_global.GUI.AgentSystem.CurrentMissionList.UNLOCK_SLOT_4) ? 0 : 1;
 		unlockedSlots += Character.GetClientCharacter().IsMember() ? 1 : 0;
 		var activeMissions:Array = AgentSystem.GetActiveMissions();
 		var agents:Array = AgentSystem.GetAgents();
