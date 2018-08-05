@@ -49,8 +49,8 @@ namespace Clockwatcher {
                 return;
             }
             Refreshing = true;
-            // Scan the logfile for alerts or other state messages
             try {
+                // Scan the logfile for alerts or other state messages
                 while (!LogReader?.EndOfStream ?? false) {
                     var line = LogReader.ReadLine();
                     if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
@@ -314,7 +314,7 @@ namespace Clockwatcher {
 
         internal void Merge(IEnumerable<TimerEntry> other) {
             foreach (var t in other) {
-                var existing = TimerList.FirstOrDefault((x) => x.ID == t.ID);
+                var existing = TimerList.FirstOrDefault((x) => x.IsAgent == t.IsAgent && x.ID == t.ID);
                 if (existing != null) {
                     existing.UnlockTime = t.UnlockTime;
                     if (existing.Class != t.Class) { existing.ChangeTimerClass(t.Class); }
@@ -339,11 +339,11 @@ namespace Clockwatcher {
     [Flags]
     internal enum TimerClass {
         None = 0,
-        AgentMission = 1,
-        AgentRecovery = 2,
+        AgentMission = 1 << 0,
+        AgentRecovery = 1 << 1,
         Agent = AgentMission | AgentRecovery,
-        Lair = 4,
-        Mission = 8
+        Lair = 1 << 2,
+        Mission = 1 << 3
     }
 
     internal abstract class TimerEntry : INotifyPropertyChanged {
@@ -373,6 +373,7 @@ namespace Clockwatcher {
         protected void RaisePropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
         public abstract TimerClass Class { get; }
+        internal bool IsAgent => (Class & TimerClass.Agent) != TimerClass.None;
 
         private bool AlertDone = false;
     }
@@ -383,6 +384,7 @@ namespace Clockwatcher {
         }
 
         internal override void ChangeTimerClass(TimerClass newClass) {
+            if ((newClass & TimerClass.Agent) == TimerClass.None) { throw new NotSupportedException("Agent state can not be changed to non-agent value"); }
             IsRecovering = newClass == TimerClass.AgentRecovery;
             RaisePropertyChanged(nameof(Class));
         }
@@ -395,7 +397,7 @@ namespace Clockwatcher {
         internal MissionTimer(string missionInfo) : base(missionInfo) { }
 
         // Mission classes are unique by ID, they should not change
-        internal override void ChangeTimerClass(TimerClass newClass) => throw new NotSupportedException();
+        internal override void ChangeTimerClass(TimerClass newClass) => throw new NotSupportedException("Mission type is constant, and should not change");
 
         public override TimerClass Class => ID > 0 ? TimerClass.Mission : TimerClass.Lair;
     }
