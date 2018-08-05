@@ -18,29 +18,45 @@ namespace Clockwatcher {
     internal sealed class Dataset : INotifyPropertyChanged, IDisposable {
         internal Dataset() {
             TabPanels.Add(Settings);
-            Settings.PropertyChanged += SettingsChanged;
-            OpenGameLog();
             Refresh();
         }
 
-        private void OpenGameLog() {
-            LogReader?.Dispose();
+        private void OpenGameLogs() {
+            // Get active client paths
+            var activePaths = Enumerable.Empty<string>();
+            var clients = Process.GetProcessesByName("SecretWorldLegends").Concat(
+                          Process.GetProcessesByName("SecretWorldLegendsDX11")).ToList();
             try {
-                LogReader = new StreamReader(new FileStream(Path.Combine(Settings.GameDir, "ClientLog.txt"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
-                LogReader.BaseStream.Seek(0, SeekOrigin.End); // Skip existing content (adding state based toggles, such as current logged in character, would require alternate solution
-            } catch (IOException) {
-                LogReader = null;
-                MessageBox.Show("Unable to open game log file. Group finder alerts disabled.\n Please verify game installation directory:\n" + Settings.GameDir + "\nChange in Settings if incorrect", "Clockwatcher Error");
+                activePaths = (from instance in clients
+                               select Path.GetDirectoryName(instance.MainModule.FileName)).ToList();
+            } finally {
+                foreach (var client in clients) {
+                    client.Dispose();
+                }
             }
-        }
-
-        private void SettingsChanged(object sender, PropertyChangedEventArgs e) {
-            switch (e.PropertyName) {
-                case nameof(ConfigPanel.GameDir): {
-                        OpenGameLog();
-                        break;
+            // Close inactive logfiles
+            foreach (var path in (from path in LogReaders.Keys
+                                  where !activePaths.Contains(path)
+                                  select path).ToList()) {
+                LogReaders[path].Dispose();
+                LogReaders.Remove(path);
+            }
+            // Open newly active logfiles
+            foreach (var path in from p in activePaths
+                                 where !LogReaders.ContainsKey(p)
+                                 select p) {
+                try {
+                    var reader = new StreamReader(new FileStream(Path.Combine(path, "ClientLog.txt"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+                    reader.BaseStream.Seek(0, SeekOrigin.End); // Skip existing content, (state toggles, such as active character, would require parsing)
+                    LogReaders[path] = reader;
+                } catch (IOException e) {
+                    using (StreamWriter log = File.AppendText("AppLog.txt")) {
+                        log.WriteLine(e);
+                        log.Close();
                     }
+                }
             }
+
         }
 
         internal void Refresh() {
@@ -55,12 +71,15 @@ namespace Clockwatcher {
             }
             Refreshing = true;
             try {
-                // Scan the logfile for alerts or other state messages
-                while (!LogReader?.EndOfStream ?? false) {
-                    var line = LogReader.ReadLine();
-                    if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
-                        if (line.EndsWith("Groupfinder queue popped")) {
-                            RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.GroupfinderAlert));
+                // Scan the logfiles for alerts or other state messages
+                OpenGameLogs(); // Ensure open logs match up to open client instances
+                foreach (var logReader in LogReaders.Values) {
+                    while (!logReader.EndOfStream) {
+                        var line = logReader.ReadLine();
+                        if (line.Length > 32 && line.IndexOf("Scaleform.Clockwatcher", 32) != -1) {
+                            if (line.EndsWith("Groupfinder queue popped")) {
+                                RaiseAlert?.Invoke(this, new AudioAlertEventArgs(AudioAlertType.GroupfinderAlert));
+                            }
                         }
                     }
                 }
@@ -160,7 +179,9 @@ namespace Clockwatcher {
         private void Dispose(bool disposing) {
             if (!Disposed) {
                 if (disposing) {
-                    LogReader.Dispose();
+                    foreach (var logReader in LogReaders.Values) {
+                        logReader.Dispose();
+                    }
                 }
                 Disposed = true;
             }
@@ -173,7 +194,7 @@ namespace Clockwatcher {
         public event PropertyChangedEventHandler PropertyChanged; // Unused, fulfils implementation requirements for WPF
 
         private bool Refreshing = false;
-        private StreamReader LogReader;
+        private IDictionary<string, StreamReader> LogReaders = new Dictionary<string, StreamReader>();
         private ICollection<CharacterTimers> CharacterMissionLists = new List<CharacterTimers>();
 
         private static readonly string PrefsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Prefs");
@@ -219,8 +240,6 @@ namespace Clockwatcher {
             if (File.Exists(settingsFile)) {
                 using (var stream = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.Read)) {
                     var settings = XElement.Load(stream);
-                    var gameDir = GetSetting(settings, "GameInfo", "Path");
-                    if (gameDir != null) { _GameDir = gameDir; }
                     if (Boolean.TryParse(GetSetting(settings, "AgentAudioAlert", "Enabled"), out var b)) {
                         _AgentAlertEnabled = b;
                     }
@@ -242,9 +261,6 @@ namespace Clockwatcher {
 
         private void SaveConfig() {
             var settings = new XElement("Settings",
-                new XElement("GameInfo",
-                  new XAttribute("Path", GameDir)
-                ),
                 new XElement("AgentAudioAlert",
                     new XAttribute("Enabled", EnableAgentAudioAlert),
                     new XAttribute("FileName", _AgentAlertFile)
@@ -284,16 +300,6 @@ namespace Clockwatcher {
         }
         public string GFPopAlertFile => Path.Combine(Directory.GetCurrentDirectory(), "sfx", _GFPopAlertFile);
 
-        public string GameDir {
-            get { return _GameDir; }
-            set {
-                if (value != _GameDir) {
-                    _GameDir = value;
-                    RaisePropertyChanged(nameof(GameDir));
-                }
-            }
-        }
-
         public ICommand DropFocusCommand { get; }
         private static void DropFocus(FrameworkElement param) {
             var parent = param.Parent as FrameworkElement;
@@ -308,10 +314,8 @@ namespace Clockwatcher {
 
         internal TimerClass AlertFilter { get; } = TimerClass.Agent;
 
-        private string SettingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Mods", "Clockwatcher");
-        private string SettingsFile = "ViewerSettings.xml";
-
-        private string _GameDir = Path.GetFullPath(Path.Combine("..", "..", "..", "..", ".."));
+        private readonly string SettingsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Funcom", "SWL", "Mods", "Clockwatcher");
+        private const string SettingsFile = "ViewerSettings.xml";
 
         private bool _AgentAlertEnabled = true;
         private string _AgentAlertFile = "AgentAlert.wav";

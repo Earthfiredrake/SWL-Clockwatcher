@@ -60,14 +60,6 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type local:ConfigPanel}">
             <StackPanel Margin="3" CanVerticallyScroll="False" >
-                <Label Content="Game Install Path"/>
-                <TextBox Text="{Binding GameDir}">
-                    <TextBox.InputBindings>
-                        <KeyBinding Gesture="Enter"
-                                    Command="{Binding DropFocusCommand}"
-                                    CommandParameter="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType={x:Type TextBox}}}" />
-                    </TextBox.InputBindings>
-                </TextBox>
                 <CheckBox Content="Agent Audio Alerts" IsChecked="{Binding EnableAgentAudioAlert}" />
                 <CheckBox Content="Group Finder Audio Alerts" IsChecked="{Binding EnableGFPopAudioAlert}" />
             </StackPanel>
