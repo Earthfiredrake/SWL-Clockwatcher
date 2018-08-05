@@ -4,6 +4,7 @@
 
 using System;
 using System.Globalization;
+using System.IO;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,18 +19,24 @@ namespace Clockwatcher {
     public partial class MainWindow : Window {
         public MainWindow() {
             InitializeComponent();
+            Application.Current.DispatcherUnhandledException += UnhandledException;
+
             var context = new Dataset();
             context.RaiseAlert += Context_RaiseAlert;
             DataContext = context;
-            RefreshTimer.Elapsed += (sender, e) => context.Refresh();
+            RefreshTimer.Elapsed += (sender, e) => Dispatcher.Invoke(DispatcherPriority.Normal, (Action)context.Refresh); // Use dispatcher to handle refresh and log exceptions
             RefreshTimer.Start();
         }
 
-        private void Context_RaiseAlert(object sender, AudioAlertEventArgs e) {
-            Dispatcher.Invoke((Action<AudioAlertEventArgs>)EmitAlert, e);
+        private void UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e) {
+            using (StreamWriter log = File.AppendText("AppLog.txt")) {
+                log.WriteLine(e.Exception);
+                log.Close();
+            }
+            e.Handled = true; // Supress exception to prevent hard crash
         }
 
-        private void EmitAlert(AudioAlertEventArgs e) {
+        private void Context_RaiseAlert(object sender, AudioAlertEventArgs e) {
             switch (e.AlertType) {
                 case AudioAlertType.AgentAlert:
                     if (!IsActive || WindowState == WindowState.Minimized) {

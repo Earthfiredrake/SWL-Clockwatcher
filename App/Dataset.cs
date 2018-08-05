@@ -29,6 +29,7 @@ namespace Clockwatcher {
                 LogReader = new StreamReader(new FileStream(Path.Combine(Settings.GameDir, "ClientLog.txt"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
                 LogReader.BaseStream.Seek(0, SeekOrigin.End); // Skip existing content (adding state based toggles, such as current logged in character, would require alternate solution
             } catch (IOException) {
+                LogReader = null;
                 MessageBox.Show("Unable to open game log file. Group finder alerts disabled.\n Please verify game installation directory:\n" + Settings.GameDir + "\nChange in Settings if incorrect", "Clockwatcher Error");
             }
         }
@@ -46,6 +47,10 @@ namespace Clockwatcher {
             // Basic re-entrancy guard
             if (Refreshing) {
                 // Warning: previous refresh took longer than 5s. Will skip this cycle
+                using (StreamWriter log = File.AppendText("AppLog.txt")) {
+                    log.WriteLine("A refresh cycle took far longer than expected, and conflicted with the subsequent call");
+                    log.Close();
+                }
                 return;
             }
             Refreshing = true;
@@ -59,9 +64,22 @@ namespace Clockwatcher {
                         }
                     }
                 }
+
                 // Load settings files
+                var charNames = new List<string>();
                 foreach (var charFile in FindCharacterFiles()) {
                     var charData = ExtractCharacterMissions(charFile, out var charName);
+                    if (charNames.Contains(charName)) {
+                        // Character name was encountered multiple times on this pass
+                        // Likely caused by duplication of game settings data in multiple folders (either a bug, or intentional backup)
+                        // Is likely to cause conflicts, but can't tell from here which version is definitive, log for reporting
+                        using (StreamWriter log = File.AppendText("AppLog.txt")) {
+                            log.WriteLine(charName + " has duplicated settings data, reported values may not synch");
+                            log.Close();
+                        }
+                    } else {
+                        charNames.Add(charName);
+                    }
                     if (charData != null) {
                         var existing = (from e in CharacterMissionLists
                                         where e.TabName == charName
@@ -116,8 +134,12 @@ namespace Clockwatcher {
                                  select new AgentTimer((e.Attribute("value").Value).Trim('"'));
                     return Enumerable.Empty<TimerEntry>().Concat(missions).Concat(agents);
                 }
-            } catch (IOException) {
+            } catch (IOException e) {
                 // File in use or other issue... either way no data from this one, so skip it
+                using (StreamWriter log = File.AppendText("AppLog.txt")) {
+                    log.WriteLine(e);
+                    log.Close();
+                }
                 charName = null;
                 return null;
             }
@@ -319,7 +341,7 @@ namespace Clockwatcher {
                     existing.UnlockTime = t.UnlockTime;
                     if (existing.Class != t.Class) { existing.ChangeTimerClass(t.Class); }
                 } else if (!t.IsReady) {
-                    App.Current.Dispatcher.Invoke(() => TimerList.Add(t));
+                    TimerList.Add(t);
                 }
             }
         }
