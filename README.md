@@ -27,16 +27,23 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
   + Character select agent alerts will be updated once an agent changes state (completes or starts a mission, or recovers from incapacitation)
 + Each lair's missions share a single entry in both the timer window and offline tracking tool, and the listed time is the longest of those missions' cooldowns
 + Clockwatcher.exe automatically refreshes every five seconds, merging new data with that already loaded and retaining any "Ready!" missions until manually cleared
-+  Game state changes should force serialization, 
++  Game state changes should force serialization, so the app will have the new data promptly after mission completions, agent status changes
 + Cooldowns seem to be tweaked occasionally by the server. Values provided by this mod, particularly while offline, should be considered estimates, usually accurate to within a minute or two
-  + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered.
+  + Agent recovery timers seem to be out of whack at the moment, with agents coming back on duty hours ahead of schedule. This can cause both the viewer and login alert system to think an agent is still busy long after they've recovered
 + Queue alerts:
   + Are not triggered for solo scens, or if queueing as a group
   + Use the same refresh cycle as the rest of the viewer, so may be delayed by up to five seconds
 
 ## Change Log
-Version Next
+Version 1.3.1
++ Full support for new agent mission slots
+  + Login alerts were ignoring empty slots after the third
 + Sequential groupfinder pops should now be better at triggering audio alerts
++ App no longer tied to mod directory
+  + Autodetects running client instances and pulls their path info to find the logfiles
+  + sfx folder is still required to be nearby (see the github app only pack for what's needed)
++ Fixes a couple minor bugs with the app, and adds significant logging to track down any remaining issues
+  + If you end up with an AppLog.txt file in your app directory, let me know
 
 Version 1.3.0
 + Mod: Alternate login screen system hopefully fixes the login crashes (if it starts crashing on startup, let me know)
@@ -81,8 +88,12 @@ Version 1.0.0
 + Tool to view these cooldowns outside of the game
 
 ## Known Issues & Further Developments
-+ Can cause the game to crash at character selection, usually when the game is first started and then works fine afterwards
-  + Mitigation has been less than successful, but it can be disabled independently if it becomes an issue (/setoption efdClockwatcherLoginAlerts false)
++ Still some strange update behaviours being reported, if you see an AppLog.txt file created it might have some info to help track them down
+  + CDs that report as ready when they aren't or vice versa
+  + Problems toggling agents between on mission and incapacitated
+  + I seem to have a 30s lag comparing the server timeouts to those in the app, uncertain why this is
++ There may be an issue login alerts won't appear if you go back to character select from in-game
+  + Thought I saw it, but have been unable to reproduce, suspect it would only occur after a /reloadui
 
 Possible future features:
 + Compact list of mission cooldowns as a secondary tab on the timer window, like days of yore
@@ -107,7 +118,7 @@ Building from flash requires the SWL API. Existing project files are configured 
 
 Master/Head is the most recent packaged release. Develop/Head is usually a commit or two behind my current test build. As much as possible I try to avoid regressions or broken commits but new features may be incomplete and unstable and there may be additional debug code intended to be removed or disabled prior to release.
 
-For the ingame components, the flash project can be found in the Mod directory. Once built, 'Clockwatcher.swf', the contents of 'config' and the 'gfx' folder should be copied to the directory 'Clockwatcher' in the game's mod directory. '/reloadui' is sufficient to force the game to load an updated swf or mod data file, but changes to the game config files (*Prefs.xml and Modules.xml) will require a restart of the client and possible deletion of .bxml caches from the mod directory.
+For the ingame components, the flash project can be found in the Mod directory. Once built, 'Clockwatcher.swf', 'LoginAlerts.swf', and the contents of 'config' should be copied to the directory 'Clockwatcher' in the game's mod directory. '/reloadui' is sufficient to force the game to load an updated swf or mod data file, but changes to the game config files (*Prefs.xml and Modules.xml) will require a restart of the client and possible deletion of .bxml caches from the mod directory.
 
 The C# project in App is for the offline tool, which does not currently have any particular post-build requirements, and can be run from any location.
 
