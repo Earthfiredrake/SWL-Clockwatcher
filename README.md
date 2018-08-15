@@ -41,7 +41,7 @@ Version 1.3.1
 + Sequential groupfinder pops should now be better at triggering audio alerts
 + App no longer tied to mod directory
   + Autodetects running client instances and pulls their path info to find the logfiles
-  + sfx folder is still required to be nearby (see the github app only pack for what's needed)
+  + sfx folder is still required to be nearby (see the viewer only pack on github for required files)
 + Fixes a couple minor bugs with the app, and adds significant logging to track down any remaining issues
   + If you end up with an AppLog.txt file in your app directory, let me know
 

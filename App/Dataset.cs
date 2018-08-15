@@ -28,7 +28,11 @@ namespace Clockwatcher {
                           Process.GetProcessesByName("SecretWorldLegendsDX11")).ToList();
             try {
                 activePaths = (from instance in clients
+                               where !instance.HasExited
                                select Path.GetDirectoryName(instance.MainModule.FileName)).ToList();
+            } catch (Win32Exception) {
+                // Occasionally this provides incomplete data, avoids closing all the logfiles and skipping an update due to an incomplete list of paths
+                return;
             } finally {
                 foreach (var client in clients) {
                     client.Dispose();
@@ -49,11 +53,8 @@ namespace Clockwatcher {
                     var reader = new StreamReader(new FileStream(Path.Combine(path, "ClientLog.txt"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
                     reader.BaseStream.Seek(0, SeekOrigin.End); // Skip existing content, (state toggles, such as active character, would require parsing)
                     LogReaders[path] = reader;
-                } catch (IOException e) {
-                    using (StreamWriter log = File.AppendText("AppLog.txt")) {
-                        log.WriteLine(e);
-                        log.Close();
-                    }
+                } catch (IOException) {
+                    // Problem opening file for read
                 }
             }
 
@@ -63,10 +64,7 @@ namespace Clockwatcher {
             // Basic re-entrancy guard
             if (Refreshing) {
                 // Warning: previous refresh took longer than 5s. Will skip this cycle
-                using (StreamWriter log = File.AppendText("AppLog.txt")) {
-                    log.WriteLine("A refresh cycle took far longer than expected, and conflicted with the subsequent call");
-                    log.Close();
-                }
+                App.LogMessage("A refresh cycle took far longer than expected, and conflicted with the subsequent call");
                 return;
             }
             Refreshing = true;
@@ -92,10 +90,7 @@ namespace Clockwatcher {
                         // Character name was encountered multiple times on this pass
                         // Likely caused by duplication of game settings data in multiple folders (either a bug, or intentional backup)
                         // Is likely to cause conflicts, but can't tell from here which version is definitive, log for reporting
-                        using (StreamWriter log = File.AppendText("AppLog.txt")) {
-                            log.WriteLine(charName + " has duplicated settings data, reported values may not synch");
-                            log.Close();
-                        }
+                        App.LogMessage(charName + " has duplicated settings data, reported values may not synch");
                     } else {
                         charNames.Add(charName);
                     }
@@ -153,12 +148,8 @@ namespace Clockwatcher {
                                  select new AgentTimer((e.Attribute("value").Value).Trim('"'));
                     return Enumerable.Empty<TimerEntry>().Concat(missions).Concat(agents);
                 }
-            } catch (IOException e) {
+            } catch (IOException) {
                 // File in use or other issue... either way no data from this one, so skip it
-                using (StreamWriter log = File.AppendText("AppLog.txt")) {
-                    log.WriteLine(e);
-                    log.Close();
-                }
                 charName = null;
                 return null;
             }
