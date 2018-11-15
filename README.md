@@ -35,6 +35,10 @@ Clockwatcher.exe requires v4.6 of the .net framework to be installed which can b
   + Use the same refresh cycle as the rest of the viewer, so may be delayed by up to five seconds
 
 ## Change Log
+Version 1.3.2
++ Mod: Fix for layout conflicts with new timers (Dark Agartha + future proofing)
++ App: Pruned error logging of false positives and reasonable fallback situations
+
 Version 1.3.1
 + Full support for new agent mission slots
   + Login alerts were ignoring empty slots after the third

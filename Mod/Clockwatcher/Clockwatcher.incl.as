@@ -14,7 +14,7 @@ var ModObj:Clockwatcher;
 
 // Called when the clip is first loaded
 // - When the player logs in a character, including on relogs
-// - When /relaodui is called
+// - When /reloadui is called
 // - If the mod activation distributed value is false, it may skip loading entirely
 function onLoad():Void { ModObj = new Clockwatcher(this); }
 

@@ -36,7 +36,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		// Debug setting at top so that commenting out leaves no hanging ','
 		// Debug : true,
 		Name : "Clockwatcher",
-		Version : "1.3.1"
+		Version : "1.3.2"
 	};
 
 	public function Clockwatcher(hostMovie:MovieClip) {
@@ -172,7 +172,7 @@ class efd.Clockwatcher.Clockwatcher extends Mod {
 		for (var i:Number = 0; i < lairs.length; ++i) {
 			var clip:MovieClip = proto.duplicateMovieClip("m_Lair" + lairs[i].zone, content.getNextHighestDepth());
 			clip._x = proto._x;
-			clip._y = proto._y + 20 * (i + 1);
+			clip._y = content._height;
 			clip.m_Name.text = LocaleManager.FormatString("Clockwatcher", "LairName", LDBFormat.LDBGetText("Playfieldnames", lairs[i].zone));
 			clip.m_Expiry = lairs[i].expiry;
 			clip.UpdateExpiry = UpdateExpiry;
