@@ -1,0 +1,10 @@
+# Build folders
+obj/
+bin/
+
+# Generated Code
+*.Designer.cs
+
+# Settings
+.vs/
+*.user
